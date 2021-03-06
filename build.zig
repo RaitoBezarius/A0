@@ -21,6 +21,8 @@ pub fn build(b: *Builder) void {
         "q35,accel=kvm:tcg",
         "-m",
         "128M",
+        "-boot",
+        "d",
         "-drive",
         "if=pflash,format=raw,readonly,file=/usr/share/ovmf/ovmf_code_x64.bin",
         "-drive",
