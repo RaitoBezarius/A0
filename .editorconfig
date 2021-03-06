@@ -1,0 +1,5 @@
+root = true
+
+[*.zig]
+ident_style = spaces
+ident_size = 4
