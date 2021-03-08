@@ -19,6 +19,10 @@ var fb: Framebuffer = Framebuffer{
     .valid = false,
 };
 
+const ScreenState = struct {
+    background: Color, foreground: Color
+};
+
 fn puts(msg: []const u8) void {
     for (msg) |c| {
         const c_ = [2]u16{ c, 0 };
