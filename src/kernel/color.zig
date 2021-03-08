@@ -1,4 +1,4 @@
-pub const Color = enum(u4) {
+pub const Color = enum(u32) {
     Black = 0,
     Blue = 1,
     Green = 2,
@@ -14,5 +14,5 @@ pub const Color = enum(u4) {
     LightRed = 12,
     LightMagenta = 13,
     LightBrown = 14,
-    White = 15,
+    White = 0xFFFFFF,
 };

@@ -2,13 +2,14 @@ const uefi = @import("std").os.uefi;
 // const L = @import("std").unicode.utf8ToUtf16LeStringLiteral;
 const platform = @import("arch/x86/platform.zig");
 const fmt = @import("std").fmt;
+const psf2 = @import("fonts/psf2.zig");
 const Color = @import("color.zig").Color;
 
 var conOut: *uefi.protocols.SimpleTextOutputProtocol = undefined;
 var graphicsOutputProtocol: ?*uefi.protocols.GraphicsOutputProtocol = undefined;
 
 const Framebuffer = struct {
-    width: u32, height: u32, pixelsPerScanLine: u32, basePtr: [*]u32, valid: bool
+    width: u32, height: u32, pixelsPerScanLine: u32, basePtr: *[*]u8, valid: bool
 };
 
 var fb: Framebuffer = Framebuffer{
@@ -19,8 +20,19 @@ var fb: Framebuffer = Framebuffer{
     .valid = false,
 };
 
+const CursorState = struct {
+    x: i32, y: i32
+};
+
 const ScreenState = struct {
-    background: Color, foreground: Color
+    cursor: CursorState
+};
+
+const state = ScreenState{
+    .cursor = CursorState{
+        .x = 0,
+        .y = 0,
+    },
 };
 
 fn puts(msg: []const u8) void {
@@ -41,7 +53,7 @@ fn setupMode(index: u32) void {
     fb.width = info.horizontal_resolution;
     fb.height = info.vertical_resolution;
     fb.pixelsPerScanLine = info.pixels_per_scan_line;
-    fb.basePtr = @intToPtr([*]u32, @as(usize, graphicsOutputProtocol.?.mode.frame_buffer_base));
+    fb.basePtr = @intToPtr(*[*]u8, @as(usize, graphicsOutputProtocol.?.mode.frame_buffer_base));
     fb.valid = true;
 }
 
@@ -78,13 +90,13 @@ fn selectBestMode() void {
     setupMode(bestMode.@"0");
 }
 
-fn getFramebufferAddr(w: u32, h: u32) u32 {
-    return fb.basePtr + 4 * w + 4 * h * fb.pixelsPerScanLine;
+fn getFramebufferAddr(w: u32, h: u32) *u32 {
+    return @intToPtr(*u32, @ptrToInt(fb.basePtr) + 4 * w + 4 * h * fb.pixelsPerScanLine);
 }
 
-fn setPixel(w: u32, h: u32, rgb: u32) void {
+pub fn setPixel(w: u32, h: u32, rgb: u32) void {
     var targetAddr = getFramebufferAddr(w, h);
-    *targetAddr = rgb | 0xff000000;
+    targetAddr.* = rgb | 0xff000000;
 }
 
 pub fn initialize() void {
@@ -127,7 +139,7 @@ pub fn initialize() void {
 }
 
 pub fn panic(msg: []const u8) void {
-    puts("KERNEL PANIC: ");
+    puts("***** KERNEL PANIC: ");
     puts(msg);
     puts("\r\n");
     platform.hang();
@@ -143,8 +155,9 @@ pub fn setTextColor(color: Color) void {
 pub fn getTextColor() Color {
     // Return current text color
 }
-pub fn drawChar(c: u8) void {
+pub fn drawChar(c: u8, fg: Color, bg: Color) void {
     // Draw a character at the current cursor.
+    psf2.putchar(psf2.defaultFont, fb.basePtr, c, state.cursor.x, state.cursor.y, @enumToInt(fg), @enumToInt(bg), fb.pixelsPerScanLine);
 }
 pub fn drawText(text: []const u8) void {
     // Iterate over all char and draw each char.

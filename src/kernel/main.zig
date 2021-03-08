@@ -5,6 +5,7 @@ const graphics = @import("graphics.zig");
 //const tty = @import("tty.zig");
 const platform = @import("platform.zig");
 const fmt = @import("std").fmt;
+const Color = @import("color.zig").Color;
 
 //fn os_banner() void {
 //    const title = "A/0 - v0.0.1";
@@ -69,14 +70,21 @@ pub fn sleep(s: u64) void {
     microsleep(s * 1000);
 }
 
+var con_in: *uefi.protocols.SimpleTextInputProtocol = undefined;
+pub fn waitForUserInput() void {
+    var key: uefi.protocols.InputKey = undefined;
+    while (con_in.readKeyStroke(&key) != uefi.Status.Success) {}
+}
+
 pub fn main() void {
     con_out = uefi.system_table.con_out.?;
+    con_in = uefi.system_table.con_in.?;
     var buf: [256]u8 = undefined;
 
     // FIXME(Ryan): complete the Graphics & TTY kernel impl to enable scrolling.
     // Then reuse it for everything else.
 
-    //graphics.initialize();
+    graphics.initialize();
     //tty.initialize();
 
     //os_banner();
@@ -91,36 +99,41 @@ pub fn main() void {
     var descriptorVersion: u32 = undefined;
 
     while (bootServices.getMemoryMap(&memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion) == uefi.Status.BufferTooSmall) {
-        if (bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap)) != uefi.Status.Success) {
+        const retCode = bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap));
+        if (retCode != uefi.Status.Success) {
+            printf(buf[0..], "Failed to allocate {} bytes using UEFI preboot allocator, returning to EFI caller after input.\r\n", .{retCode});
+            waitForUserInput();
             return;
         }
     }
 
-    showMemoryMapInfo(memoryMap, memoryMapSize, descriptorSize);
+    //showMemoryMapInfo(memoryMap, memoryMapSize, descriptorSize);
 
-    printf(buf[0..], "Memory mapping shown: 0x{x}.\r\n", .{@ptrCast([*]align(8) u8, memoryMap)});
-    var retCode = bootServices.freePool(@ptrCast([*]align(8) u8, memoryMap));
-    if (retCode != uefi.Status.Success) {
-        printf(buf[0..], "Failed to free the memory map allocated: {}.\r\n", .{retCode});
-        sleep(2);
-        return;
-    }
-
+    printf(buf[0..], "Quitting boot services, memory map key: {}\r\n", .{memoryMapKey});
     while (bootServices.getMemoryMap(&memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion) == uefi.Status.BufferTooSmall) {
-        if (bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap)) != uefi.Status.Success) {
+        const retCode = bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap));
+        if (retCode != uefi.Status.Success) {
+            printf(buf[0..], "Failed to allocate {} bytes using UEFI preboot allocator, returning to EFI caller after input.\r\n", .{retCode});
+            waitForUserInput();
             return;
         }
     }
 
-    retCode = bootServices.exitBootServices(uefi.handle, memoryMapKey);
+    graphics.drawChar('A', Color.White, Color.Black);
+
+    puts("Waiting for user input for next step.\r\n");
+    waitForUserInput();
+
+    var retCode = bootServices.exitBootServices(uefi.handle, memoryMapKey);
+
     if (retCode != uefi.Status.Success) {
-        printf(buf[0..], "Failed to exit boot services, err code: {}, returning to EFI caller.\r\n", .{retCode});
-        sleep(2);
+        printf(buf[0..], "Failed to exit boot services, err code: {}, returning to EFI caller after input.\r\n", .{retCode});
+        waitForUserInput();
         return;
     }
 
-    puts("Boot services exited. Now, only runtime UEFI services are available.\r\n");
-    sleep(1);
+    // show_logo();
+    // tty.initialize();
     // runtimeServices.set_virtual_address_map();
 
     platform.initialize();
