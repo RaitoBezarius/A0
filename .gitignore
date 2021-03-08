@@ -4,3 +4,6 @@
 
 # Remove local Zig caches
 **/zig-cache
+
+# Ignore UEFI vars
+src/uefi_vars.bin
