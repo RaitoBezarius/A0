@@ -118,7 +118,7 @@ pub fn main() void {
             return;
         }
     }
-
+    sleep(1);
     graphics.drawChar('A', Color.White, Color.Black);
 
     puts("Waiting for user input for next step.\r\n");

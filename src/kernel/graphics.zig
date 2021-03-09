@@ -156,8 +156,14 @@ pub fn getTextColor() Color {
     // Return current text color
 }
 pub fn drawChar(c: u8, fg: Color, bg: Color) void {
+    if (!fb.valid) panic("Invalid framebuffer!");
     // Draw a character at the current cursor.
-    psf2.putchar(psf2.defaultFont, fb.basePtr, c, state.cursor.x, state.cursor.y, @enumToInt(fg), @enumToInt(bg), fb.pixelsPerScanLine);
+    var buf: [4096]u8 = undefined;
+    printf(buf[0..], "PSF2 header: {}\r\n", .{psf2.defaultFont.header});
+    printf(buf[0..], "PSF2 data length: {}\r\n", .{psf2.defaultFont.dataLength()});
+    puts("PSF2 Data:\r\n");
+    puts(psf2.debugGlyph(buf[0..], psf2.defaultFont, 3));
+    // psf2.putchar(psf2.defaultFont, fb.basePtr, c, state.cursor.x, state.cursor.y, @enumToInt(fg), @enumToInt(bg), fb.pixelsPerScanLine);
 }
 pub fn drawText(text: []const u8) void {
     // Iterate over all char and draw each char.

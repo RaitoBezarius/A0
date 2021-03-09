@@ -37,6 +37,8 @@ pub fn build(b: *Builder) void {
         "if=pflash,format=raw,file=src/uefi_vars.bin",
         "-drive",
         "format=raw,file=fat:rw:build",
+        "-monitor",
+        "unix:qemu-monitor-socket,server,nowait",
     });
     run_cmd.step.dependOn(b.getInstallStep());
     run_cmd.step.dependOn(&uefiStartupScript.step);

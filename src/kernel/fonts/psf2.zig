@@ -1,21 +1,44 @@
+const fmt = @import("std").fmt;
 const PSF_FONT_MAGIC: u32 = 0x864ab572;
 
-const PSFHeader = struct {
-    magic: u32, version: u32, // Zero
+const PSFHeader = packed struct {
+    magic: u32,
+    version: u32, // Zero
     headerSize: u32, // Offset of bitmaps in file, 32
     flags: u32, // 0 if no unicode table
     numGlyphs: u32, // Number of glyphs
     bytesPerGlyph: u32, // Size of each glyph
     height: u32, // Height in pixels
-    width: u32 // Width in pixels
+    width: u32, // Width in pixels
 };
 
-const Font = struct {
-    header: PSFHeader, data: [*]u8
+const Font = packed struct {
+    header: PSFHeader,
+    data: [*]u8,
+    pub fn dataLength(self: Font) usize {
+        return self.header.numGlyphs * self.header.bytesPerGlyph;
+    }
 };
 
-const defaultFontBuffer = @embedFile("Lat2-Terminus16.psfu");
-pub const defaultFont: *const Font = @ptrCast(*const Font, defaultFontBuffer);
+const defaultFontBuffer = @ptrCast(*const [*:0]u8, @embedFile("Lat2-Terminus16.psfu"));
+pub fn fromBuffer(buffer: *const [*:0]u8) ?*const Font {
+    const font: *const Font = @ptrCast(*const Font, buffer);
+    if (font.header.magic != PSF_FONT_MAGIC) {
+        return null;
+    } else {
+        return font;
+    }
+}
+pub const defaultFont: *const Font = fromBuffer(defaultFontBuffer).?;
+
+pub fn debugGlyph(buffer: []u8, font: *const Font, glyph_index: u32) []const u8 {
+    if (glyph_index < 0 or glyph_index >= font.header.numGlyphs) {
+        return fmt.bufPrint(buffer, "out of range glyph\r\n", .{}) catch unreachable;
+    }
+
+    const start = glyph_index * font.header.bytesPerGlyph;
+    return fmt.bufPrint(buffer, "bytes: {x}\r\n", .{@bitCast([16]u8, font.data[start .. start + 16])}) catch unreachable;
+}
 
 pub fn putchar(font: *const Font, dest: *[*]u8, c: u8, cx: i32, cy: i32, fg: u32, bg: u32, scanLine: u32) void {
     const bytesPerLine = (font.header.width + 7) / 8;
