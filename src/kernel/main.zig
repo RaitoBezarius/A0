@@ -108,6 +108,9 @@ pub fn main() void {
     }
 
     //showMemoryMapInfo(memoryMap, memoryMapSize, descriptorSize);
+    sleep(3);
+    graphics.drawChar('A', Color.White, Color.Black);
+    sleep(1);
 
     printf(buf[0..], "Quitting boot services, memory map key: {}\r\n", .{memoryMapKey});
     while (bootServices.getMemoryMap(&memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion) == uefi.Status.BufferTooSmall) {
@@ -118,9 +121,6 @@ pub fn main() void {
             return;
         }
     }
-    sleep(1);
-    graphics.drawChar('A', Color.White, Color.Black);
-
     puts("Waiting for user input for next step.\r\n");
     waitForUserInput();
 
