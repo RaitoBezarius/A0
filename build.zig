@@ -4,6 +4,7 @@ const Builder = @import("std").build.Builder;
 pub fn build(b: *Builder) void {
     const exe = b.addExecutable("BootX64", "src/kernel/main.zig");
 
+    exe.addAssemblyFile("src/kernel/arch/x86/platform.s");
     // exe.addAssemblyFile("src/kernel/arch/x86/isr.s");
 
     exe.setBuildMode(b.standardReleaseOptions());
