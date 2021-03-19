@@ -64,7 +64,7 @@ fn resize(
         return error.OutOfMemory;
     }
 
-    const freedSize = allocHaederPtr.size;
+    const freedSize = allocHeaderPtr.size;
     _ = uefi.system_table.boot_services.?.freePool(allocHeaderPtr.base);
 
     return freedSize;

@@ -5,6 +5,8 @@ pub fn build(b: *Builder) void {
     const exe = b.addExecutable("BootX64", "src/kernel/main.zig");
 
     exe.addAssemblyFile("src/kernel/arch/x86/platform.s");
+    exe.addAssemblyFile("src/kernel/arch/x86/vmem.s");
+    exe.addAssemblyFile("src/kernel/arch/x86/gdt.s");
     // exe.addAssemblyFile("src/kernel/arch/x86/isr.s");
 
     exe.setBuildMode(b.standardReleaseOptions());
@@ -40,6 +42,10 @@ pub fn build(b: *Builder) void {
         "format=raw,file=fat:rw:build",
         "-monitor",
         "unix:qemu-monitor-socket,server,nowait",
+        "-d",
+        "int,cpu_reset",
+        //"-no-reboot",
+        //"-no-shutdown",
     });
     run_cmd.step.dependOn(b.getInstallStep());
     run_cmd.step.dependOn(&uefiStartupScript.step);

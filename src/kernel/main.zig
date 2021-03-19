@@ -50,6 +50,10 @@ pub fn waitForUserInput() void {
     while (con_in.readKeyStroke(&key) != uefi.Status.Success) {}
 }
 
+fn user_fun() void {
+    while (true) {}
+}
+
 pub fn main() void {
     con_out = uefi.system_table.con_out.?;
     con_in = uefi.system_table.con_in.?;
@@ -63,8 +67,7 @@ pub fn main() void {
     // UEFI-specific initialization
     const bootServices = uefi.system_table.boot_services.?;
 
-    printf(buf[0..], "EFER MSR: {}\r\n", .{platform.readMSR(platform.EFER_MSR)});
-    platform.writeMSR(platform.EFER_MSR, 1 << 8);
+    // printf(buf[0..], "EFER MSR: {}\r\n", .{platform.readMSR(platform.EFER_MSR)});
     uefiSystemInfo.dumpAndAssertPlatformState(con_out);
 
     printf(buf[0..], "Quitting boot services, memory map key: {}\r\n", .{uefiMemory.memoryMap.key});
@@ -80,8 +83,6 @@ pub fn main() void {
     // runtimeServices.set_virtual_address_map();
 
     platform.initialize();
-    //pmem.initialize();
-    //vmem.initialize();
     //mem.initialize(MEMORY_OFFSET);
     //timer.initialize(100);
     //scheduler.initialize();
@@ -89,6 +90,8 @@ pub fn main() void {
     //tty.colorPrint(Color.LightBlue, "\nLoading the servers (driverspace):\n");
 
     // The OS is now running.
-    platform.sti();
+    platform.cli(); // Disable interrupts.
+    var user_stack: [1024]u64 = undefined;
+    platform.liftoff(&user_fun, &user_stack[1023]); // Go to userspace.
     platform.hlt();
 }

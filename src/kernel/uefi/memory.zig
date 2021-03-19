@@ -9,7 +9,7 @@ const MemorySystemInfo = struct {
 var memorySystemInfoState = MemorySystemInfo{};
 pub const memorySystemInfo = &memorySystemInfoState;
 
-const MemoryMap = struct {
+pub const MemoryMap = struct {
     map: [*]uefi.tables.MemoryDescriptor = undefined,
     size: usize = 0,
     key: usize = undefined,

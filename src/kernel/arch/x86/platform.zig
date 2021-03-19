@@ -1,18 +1,37 @@
+const gdt = @import("gdt.zig");
+const vmem = @import("vmem.zig");
+const pmem = @import("pmem.zig");
+
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
 
 pub fn initialize() void {
-    // gdt.initialize();
-    // idt.initialize();
+    gdt.initialize();
+    // TODO(interrupts): idt.initialize();
+    pmem.initialize();
+    vmem.initialize();
 
+    enableSystemCallExtensions();
     // pic.initialize();
     // isr.initialize();
     // irq.initialize();
 
-    // TODO: init paging
-
     // pit.initialize();
     // rtc.initialize();
+}
+
+pub fn liftoff(userspace_fun_ptr: *const fn () void, userspace_stack: *u64) void {
+    // Get a new IP/SP and setup eflags.
+    // Then sysret!
+    asm volatile (
+        \\mov %[userspace_fun_ptr], %%rdi
+        \\mov %[userspace_stack], %%rsi
+        \\mov $0x0202, %%r11
+        \\sysretq
+        :
+        : [userspace_fun_ptr] "r" (userspace_fun_ptr),
+          [userspace_stack] "r" (userspace_stack)
+    );
 }
 
 pub inline fn hlt() noreturn {
@@ -39,23 +58,6 @@ pub inline fn lidt(idtr: usize) void {
     asm volatile ("lidt (%[idtr])"
         :
         : [idtr] "r" (idtr)
-    );
-}
-
-// Load a new Task Register
-pub inline fn ltr(desc: u16) void {
-    asm volatile ("ltr %[desc]"
-        :
-        : [desc] "r" (desc)
-    );
-}
-
-// Invalidate TLB entry associated with given vaddr
-pub inline fn invlpg(v_addr: usize) void {
-    asm volatile ("invlpg (%[v_addr])"
-        :
-        : [v_addr] "r" (v_addr)
-        : "memory"
     );
 }
 
@@ -147,6 +149,7 @@ pub fn isLongModeEnabled() bool {
     return (registers[3] & (1 << 29)) == (1 << 29) and (eferMSR & (1 << 10)) == (1 << 10);
 }
 
+pub const STAR_MSR = 0xC0000081;
 pub fn enableSystemCallExtensions() void {
     var eferMSR = readMSR(EFER_MSR);
     writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.

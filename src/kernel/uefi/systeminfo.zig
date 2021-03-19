@@ -11,7 +11,7 @@ const PSE_ENABLED = L("PSE is enabled\r\n");
 const WARN_TSS_SET = L("WARNING: task switch flag is set\r\n");
 const WARN_EM_SET = L("WARNING: x87 emulation is enabled\r\n");
 const LONG_MODE_ENABLED = L("Long mode is enabled\r\n");
-const WARN_LONG_MODE_UNSUPPORTED = L("Long mode is unsupported\r\n");
+const WARN_LONG_MODE_UNSUPPORTED = L("Long mode is not enabled\r\n");
 const WARN_NO_CPUID = L("No CPUID instruction was detected, prepare for unforeseen consequences.\r\n");
 
 pub fn dumpAndAssertPlatformState(conOut: *uefi.protocols.SimpleTextOutputProtocol) void {
@@ -26,6 +26,10 @@ pub fn dumpAndAssertPlatformState(conOut: *uefi.protocols.SimpleTextOutputProtoc
 
     if (platform.isPAEEnabled()) {
         _ = conOut.outputString(PAE_ENABLED);
+    }
+
+    if (platform.isPSEEnabled()) {
+        _ = conOut.outputString(PSE_ENABLED);
     }
 
     if (platform.isTSSSet()) {
@@ -47,5 +51,5 @@ pub fn dumpAndAssertPlatformState(conOut: *uefi.protocols.SimpleTextOutputProtoc
         _ = conOut.outputString(WARN_LONG_MODE_UNSUPPORTED);
     }
 
-    _ = conOut.outputString(L("Platform dumped.\r\n"));
+    _ = conOut.outputString(L("Platform state dumped.\r\n"));
 }
