@@ -6,12 +6,12 @@ pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
 
 pub fn initialize() void {
-    gdt.initialize();
+    // gdt.initialize(); oula fais pas ça.
     // TODO(interrupts): idt.initialize();
     pmem.initialize();
     vmem.initialize();
 
-    enableSystemCallExtensions();
+    //enableSystemCallExtensions();
     // pic.initialize();
     // isr.initialize();
     // irq.initialize();
@@ -34,40 +34,40 @@ pub fn liftoff(userspace_fun_ptr: *const fn () void, userspace_stack: *u64) void
     );
 }
 
-pub inline fn hlt() noreturn {
+pub fn hlt() noreturn {
     while (true) {
         asm volatile ("hlt");
     }
 }
 
-pub inline fn cli() void {
+pub fn cli() void {
     asm volatile ("cli");
 }
 
-pub inline fn sti() void {
+pub fn sti() void {
     asm volatile ("sti");
 }
 
-pub inline fn hang() noreturn {
+pub fn hang() noreturn {
     cli();
     hlt();
 }
 
 // Load a new IDT
-pub inline fn lidt(idtr: usize) void {
+pub fn lidt(idtr: usize) void {
     asm volatile ("lidt (%[idtr])"
         :
         : [idtr] "r" (idtr)
     );
 }
 
-pub inline fn readCR(comptime number: []const u8) usize {
+pub fn readCR(comptime number: []const u8) usize {
     return asm volatile ("mov %%cr" ++ number ++ ", %[ret]"
         : [ret] "=r" (-> usize)
     );
 }
 
-pub inline fn writeCR(comptime number: []const u8, value: usize) void {
+pub fn writeCR(comptime number: []const u8, value: usize) void {
     asm volatile ("mov %[value], %%cr" ++ number
         :
         : [value] "r" (value)
@@ -167,11 +167,11 @@ pub fn rdtsc() u64 {
     );
 }
 
-pub inline fn ioWait() void {
+pub fn ioWait() void {
     out(0x80, @as(u8, 0));
 }
 
-pub inline fn out(port: u16, data: anytype) void {
+pub fn out(port: u16, data: anytype) void {
     switch (@TypeOf(data)) {
         u8 => asm volatile ("outb %[data], %[port]"
             :
@@ -192,7 +192,7 @@ pub inline fn out(port: u16, data: anytype) void {
     }
 }
 
-pub inline fn in(comptime Type: type, port: u16) Type {
+pub fn in(comptime Type: type, port: u16) Type {
     return switch (Type) {
         u8 => asm volatile ("inb %[port], %[result]"
             : [result] "={al}" (-> Type)

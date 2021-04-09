@@ -20,19 +20,15 @@ const TSS_ACCESS = 0x89;
 const PROTECTED = (1 << 2);
 const BLOCKS_4K = (1 << 3);
 
-const GDTEntry = packed struct {
-    limit_low: u16, base_low: u16, base_mid: u8, access: u8, limit_high: u4, flags: u4, base_high: u8
-};
+const GDTEntry = packed struct { limit_low: u16, base_low: u16, base_mid: u8, access: u8, limit_high: u4, flags: u4, base_high: u8 };
 
 const GDTRegister = packed struct {
     limit: u16,
     base: *const GDTEntry,
 };
 
-const TSS = packed struct {
-    reserved0: u32 = undefined, rsp0: u64 = undefined, // Stack to use when coming to ring 0 from ring > 0
-    rsp1: u64 = undefined, rsp2: u64 = undefined, reserved1: u64 = undefined, ist1: u64 = undefined, ist2: u64 = undefined, ist3: u64 = undefined, ist4: u64 = undefined, ist5: u64 = undefined, ist6: u64 = undefined, ist7: u64 = undefined, reserved2: u64 = undefined, reserved3: u16 = undefined, iopb_offset: u16 = undefined
-};
+const TSS = packed struct { reserved0: u32 = undefined, rsp0: u64 = undefined, // Stack to use when coming to ring 0 from ring > 0
+rsp1: u64 = undefined, rsp2: u64 = undefined, reserved1: u64 = undefined, ist1: u64 = undefined, ist2: u64 = undefined, ist3: u64 = undefined, ist4: u64 = undefined, ist5: u64 = undefined, ist6: u64 = undefined, ist7: u64 = undefined, reserved2: u64 = undefined, reserved3: u16 = undefined, iopb_offset: u16 = undefined };
 
 fn makeEntry(base: usize, limit: usize, access: u8, flags: u4) GDTEntry {
     return GDTEntry{
@@ -74,14 +70,14 @@ pub fn setKernelStack(rsp0: usize) void {
 extern fn loadGDT(gdtr: *const GDTRegister) void;
 
 // Load a new Task Register
-pub inline fn ltr(desc: u16) void {
+pub fn ltr(desc: u16) void {
     asm volatile ("ltr %[desc]"
         :
         : [desc] "r" (desc)
     );
 }
 
-pub inline fn readGDT() []GDTEntry {
+pub fn readGDT() []GDTEntry {
     var gdtr_buffer: GDTRegister = undefined;
 
     asm volatile ("sgdt %[input]"

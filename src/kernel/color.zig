@@ -16,3 +16,15 @@ pub const Color = enum(u32) {
     LightBrown = 14,
     White = 0xFFFFFF,
 };
+
+pub fn R(c: Color) u8 {
+    return @truncate(u8, @enumToInt(c) >> 16);
+}
+
+pub fn G(c: Color) u8 {
+    return @truncate(u8, @enumToInt(c) >> 8);
+}
+
+pub fn B(c: Color) u8 {
+    return @truncate(u8, @enumToInt(c));
+}

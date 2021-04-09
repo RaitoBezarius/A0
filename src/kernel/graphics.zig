@@ -3,13 +3,29 @@ const uefi = @import("std").os.uefi;
 const platform = @import("arch/x86/platform.zig");
 const fmt = @import("std").fmt;
 const psf2 = @import("fonts/psf2.zig");
-const Color = @import("color.zig").Color;
+const ColorMod = @import("color.zig");
+const Color = ColorMod.Color;
+const uefiConsole = @import("uefi/console.zig");
 
-var conOut: *uefi.protocols.SimpleTextOutputProtocol = undefined;
 var graphicsOutputProtocol: ?*uefi.protocols.GraphicsOutputProtocol = undefined;
 
+const Pixel = packed struct {
+    blue: u8,
+    green: u8,
+    red: u8,
+    pad: u8 = undefined,
+};
+
+fn pixelFromColor(c: Color) Pixel {
+    return Pixel{
+        .blue = ColorMod.B(c),
+        .green = ColorMod.G(c),
+        .red = ColorMod.R(c),
+    };
+}
+
 const Framebuffer = struct {
-    width: u32, height: u32, pixelsPerScanLine: u32, basePtr: *[*]u8, valid: bool
+    width: u32, height: u32, pixelsPerScanLine: u32, basePtr: [*]Pixel, valid: bool
 };
 
 var fb: Framebuffer = Framebuffer{
@@ -28,23 +44,12 @@ const ScreenState = struct {
     cursor: CursorState
 };
 
-const state = ScreenState{
+var state = ScreenState{
     .cursor = CursorState{
         .x = 0,
         .y = 0,
     },
 };
-
-fn puts(msg: []const u8) void {
-    for (msg) |c| {
-        const c_ = [2]u16{ c, 0 };
-        _ = conOut.outputString(@ptrCast(*const [1:0]u16, &c_));
-    }
-}
-
-fn printf(buf: []u8, comptime format: []const u8, args: anytype) void {
-    puts(fmt.bufPrint(buf, format, args) catch unreachable);
-}
 
 fn setupMode(index: u32) void {
     _ = graphicsOutputProtocol.?.setMode(index);
@@ -53,8 +58,12 @@ fn setupMode(index: u32) void {
     fb.width = info.horizontal_resolution;
     fb.height = info.vertical_resolution;
     fb.pixelsPerScanLine = info.pixels_per_scan_line;
-    fb.basePtr = @intToPtr(*[*]u8, @as(usize, graphicsOutputProtocol.?.mode.frame_buffer_base));
+    fb.basePtr = @intToPtr([*]Pixel, graphicsOutputProtocol.?.mode.frame_buffer_base);
     fb.valid = true;
+
+    // Put the cursor at the center.
+    state.cursor.x = @divTrunc(@bitCast(i32, fb.width), 2);
+    state.cursor.y = @divTrunc(@bitCast(i32, fb.height), 2);
 }
 
 const MOST_APPROPRIATE_W = 1920;
@@ -90,23 +99,17 @@ fn selectBestMode() void {
     setupMode(bestMode.@"0");
 }
 
-fn getFramebufferAddr(w: u32, h: u32) *u32 {
-    return @intToPtr(*u32, @ptrToInt(fb.basePtr) + 4 * w + 4 * h * fb.pixelsPerScanLine);
-}
-
 pub fn setPixel(w: u32, h: u32, rgb: u32) void {
-    var targetAddr = getFramebufferAddr(w, h);
-    targetAddr.* = rgb | 0xff000000;
+    if (!fb.valid) panic("Invalid framebuffer!");
+    fb.basePtr[4 * (w + h * fb.pixelsPerScanLine)] = pixelFromColor(@intToEnum(Color, rgb | 0xff000000));
 }
 
 pub fn initialize() void {
-    conOut = uefi.system_table.con_out.?;
-
     const boot_services = uefi.system_table.boot_services.?;
     var buf: [100]u8 = undefined;
 
     if (boot_services.locateProtocol(&uefi.protocols.GraphicsOutputProtocol.guid, null, @ptrCast(*?*c_void, &graphicsOutputProtocol)) == uefi.Status.Success) {
-        puts("[LOW-LEVEL DEBUG] Graphics output protocol is supported!\r\n");
+        uefiConsole.puts("[LOW-LEVEL DEBUG] Graphics output protocol is supported!\r\n");
 
         var i: u8 = 0;
         while (i < graphicsOutputProtocol.?.mode.max_mode) : (i += 1) {
@@ -114,40 +117,41 @@ pub fn initialize() void {
             var info_size: usize = undefined;
             _ = graphicsOutputProtocol.?.queryMode(i, &info_size, &info);
 
-            printf(buf[0..], "    mode {} = {}x{}\r\n", .{
+            uefiConsole.printf(buf[0..], "    mode {} = {}x{}\r\n", .{
                 i,                        info.horizontal_resolution,
                 info.vertical_resolution,
             });
         }
 
-        printf(buf[0..], "    current mode = {}\r\n", .{graphicsOutputProtocol.?.mode.mode});
+        uefiConsole.printf(buf[0..], "    current mode = {}\r\n", .{graphicsOutputProtocol.?.mode.mode});
 
         // Move to larger mode.
         selectBestMode();
-        puts("Graphics re-initialized.");
+        // uefiConsole.disable();
 
         const curMode = graphicsOutputProtocol.?.mode.mode;
         var info: *uefi.protocols.GraphicsOutputModeInformation = undefined;
         var info_size: usize = undefined;
         _ = graphicsOutputProtocol.?.queryMode(curMode, &info_size, &info);
-        printf(buf[0..], "    current mode = {}x{}\r\n", .{ info.horizontal_resolution, info.vertical_resolution });
+        uefiConsole.printf(buf[0..], "    current mode = {}x{}x{}\r\n", .{ info.horizontal_resolution, info.vertical_resolution, info.pixels_per_scan_line });
 
         clear(Color.Black);
+        uefiConsole.puts("Screen cleared.\r\n");
     } else {
         panic("Graphics output protocol is NOT supported, failing.\r\n");
     }
 }
 
 pub fn panic(msg: []const u8) void {
-    puts("***** KERNEL PANIC: ");
-    puts(msg);
-    puts("\r\n");
+    uefiConsole.puts("***** KERNEL PANIC: ");
+    uefiConsole.puts(msg);
+    uefiConsole.puts("\r\n");
     platform.hang();
 }
 
 pub fn clear(color: Color) void {
-    // Iterate over the screen and setPixel(x,y,color)
-    // Reset cursor.
+    drawRect(fb.width, fb.height, color);
+    // TODO: Reset cursor.
 }
 pub fn setTextColor(color: Color) void {
     // Store current text color
@@ -155,18 +159,46 @@ pub fn setTextColor(color: Color) void {
 pub fn getTextColor() Color {
     // Return current text color
 }
+
+pub fn drawRect(w: u32, h: u32, c: Color) void {
+    if (!fb.valid) panic("Invalid framebuffer!");
+    var i: u32 = 0;
+    var where: [*]u8 = @ptrCast([*]u8, fb.basePtr);
+
+    while (i < w) : (i += 1) {
+        var j: u32 = 0;
+        while (j <= h) : (j += 1) {
+            where[4 * j] = ColorMod.R(c);
+            where[4 * j + 1] = ColorMod.G(c);
+            where[4 * j + 2] = ColorMod.B(c);
+        }
+        where += 3200;
+    }
+}
+
 pub fn drawChar(c: u8, fg: Color, bg: Color) void {
     if (!fb.valid) panic("Invalid framebuffer!");
     // Draw a character at the current cursor.
-    //var buf: [4096]u8 = undefined;
-    //printf(buf[0..], "PSF2 header: {}\r\n", .{psf2.defaultFont});
-    //puts("PSF2 Data:\r\n");
-    //puts(psf2.debugGlyph(buf[0..], psf2.defaultFont, 0));
-    psf2.renderChar(psf2.defaultFont, fb.basePtr, c, state.cursor.x, state.cursor.y, @enumToInt(fg), @enumToInt(bg), fb.pixelsPerScanLine);
+    var buf: [4096]u8 = undefined;
+    uefiConsole.printf(buf[0..], "write {} @ cursor: {}\r\n", .{ c, state.cursor });
+    uefiConsole.puts(psf2.debugGlyph(buf[0..], psf2.defaultFont, @as(u32, c)));
+    psf2.renderChar(psf2.defaultFont, @ptrCast([*]u8, fb.basePtr), c, state.cursor.x, state.cursor.y, @enumToInt(fg), @enumToInt(bg), fb.pixelsPerScanLine);
+
+    state.cursor.x += 1;
+    if (state.cursor.x >= fb.width) {
+        state.cursor.y += 1;
+        state.cursor.x = 0;
+    }
 }
 pub fn drawText(text: []const u8) void {
     // Iterate over all char and draw each char.
 }
 pub fn alignLeft(offset: usize) void {
     // Move cursor left of offset chars.
+}
+
+pub fn selfTest() void {
+    clear(Color.Black);
+    drawChar('a', Color.White, Color.Black);
+    //clear(Color.White);
 }

@@ -7,3 +7,6 @@
 
 # Ignore UEFI vars
 src/uefi_vars.bin
+
+# Ignore debug log
+debug.log

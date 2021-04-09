@@ -2,11 +2,11 @@
 pub const Stack = 0x80000;
 pub const VRAM = 0xB8000;
 pub const Kernel = 0x100000;
-pub const Identity = 0x800000;
+pub const Identity = 0x1500000;
 
 // Kernel structures
-pub const Temporary = 0x800000;
-pub const Heap = 0x900000;
+pub const Temporary = 0x1500000;
+pub const Heap = 0x1510000;
 
 // TODO: User space
 
