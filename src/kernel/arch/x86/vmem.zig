@@ -116,7 +116,7 @@ pub fn invlpg(v_addr: usize) void {
 extern fn setupPaging(pd: usize) void;
 pub fn initialize() void {
     serial.writeText("Virtual memory and paging initializing...\n");
-    // FIXME: assert(pmem.stack_end < layout.Identity); is false.
+    assert(pmem.stack_end < layout.Identity);
 
     const pd = @intToPtr([*]PageEntry, pmem.allocate()); // Page directory's page.
     serial.writeText("PD entry allocated.\n");

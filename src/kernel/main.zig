@@ -10,6 +10,7 @@ const graphics = @import("graphics.zig");
 //const tty = @import("tty.zig");
 const platform = @import("platform.zig");
 const serial = @import("debug/serial.zig");
+pub const panic = serial.panic;
 
 //fn os_banner() void {
 //    const title = "A/0 - v0.0.1";

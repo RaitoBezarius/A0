@@ -1,3 +1,6 @@
+const builtin = @import("builtin");
+const std = @import("std");
+const dwarf = std.dwarf;
 const platform = @import("../platform.zig");
 const out = platform.out;
 const in = platform.in;
@@ -67,4 +70,64 @@ pub fn read() u8 {
     while (!has_received()) {}
 
     return in(u8, port);
+}
+
+fn hang() noreturn {
+    while (true) {}
+}
+
+var kernel_panic_allocator_bytes: [100 * 1024]u8 = undefined;
+var kernel_panic_allocator_state = std.heap.FixedBufferAllocator.init(kernel_panic_allocator_bytes[0..]);
+const kernel_panic_allocator = &kernel_panic_allocator_state.allocator;
+
+extern var __debug_info_start: u8;
+extern var __debug_info_end: u8;
+extern var __debug_abbrev_start: u8;
+extern var __debug_abbrev_end: u8;
+extern var __debug_str_start: u8;
+extern var __debug_str_end: u8;
+extern var __debug_line_start: u8;
+extern var __debug_line_end: u8;
+extern var __debug_ranges_start: u8;
+extern var __debug_ranges_end: u8;
+
+fn dwarfSectionFromSymbolAbs(start: *u8, end: *u8) dwarf.DwarfInfo.Section {
+    return dwarf.DwarfInfo.Section{
+        .offset = 0,
+        .size = @ptrToInt(end) - @ptrToInt(start),
+    };
+}
+
+fn dwarfSectionFromSymbol(start: *u8, end: *u8) []const u8 {
+    return @ptrCast([*]u8, start)[0 .. (@ptrToInt(end) - @ptrToInt(start)) / @sizeOf(u8)];
+}
+
+fn getSelfDebugInfo() !*dwarf.DwarfInfo {
+    const S = struct {
+        var have_self_debug_info = false;
+        var self_debug_info: dwarf.DwarfInfo = undefined;
+    };
+    if (S.have_self_debug_info) return &S.self_debug_info;
+
+    S.self_debug_info = dwarf.DwarfInfo{
+        .endian = builtin.Endian.Little,
+        .debug_info = dwarfSectionFromSymbol(&__debug_info_start, &__debug_info_end),
+        .debug_abbrev = dwarfSectionFromSymbol(&__debug_abbrev_start, &__debug_abbrev_end),
+        .debug_str = dwarfSectionFromSymbol(&__debug_str_start, &__debug_str_end),
+        .debug_line = dwarfSectionFromSymbol(&__debug_line_start, &__debug_line_end),
+        .debug_ranges = dwarfSectionFromSymbol(&__debug_ranges_start, &__debug_ranges_end),
+    };
+    try dwarf.openDwarfDebugInfo(&S.self_debug_info, kernel_panic_allocator);
+    return &S.self_debug_info;
+}
+
+pub fn panic(msg: []const u8, error_return_trace: ?*builtin.StackTrace) noreturn {
+    writeText("\n!!!!!!!!!!!!! KERNEL PANIC !!!!!!!!!!!!!!!\n");
+    writeText(msg);
+    writeText("\n");
+    hang();
+}
+
+fn printLineFromFile(_: anytype, line_info: dwarf.LineInfo) anyerror!void {
+    writeText("TODO: print line from file\n");
 }

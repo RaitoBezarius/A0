@@ -64,7 +64,7 @@ pub fn initialize() void {
     stack = @intToPtr([*]usize, chillDescriptor.physical_start);
     stack_size = chillDescriptor.number_of_pages * x86.PAGE_SIZE;
     stack_end = chillDescriptor.physical_start + stack_size;
-    serial.writeText(fmt.bufPrint(buf[0..], "Kernel stack initialized, phy start: {x}, stack start: {x}, stack end: {x}.\n", .{ @ptrToInt(stack), stack_end }) catch unreachable);
+    serial.writeText(fmt.bufPrint(buf[0..], "Kernel stack initialized, stack start: {x}, stack end: {x}.\n", .{ @ptrToInt(stack), stack_end }) catch unreachable);
 
     // Mark all pages as available.
     var i: usize = 0;
