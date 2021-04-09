@@ -3,13 +3,13 @@ const L = @import("std").unicode.utf8ToUtf16LeStringLiteral;
 
 const uefiAllocator = @import("uefi/allocator.zig");
 const uefiMemory = @import("uefi/memory.zig");
+const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
 
 const graphics = @import("graphics.zig");
 //const tty = @import("tty.zig");
 const platform = @import("platform.zig");
-const fmt = @import("std").fmt;
-const Color = @import("color.zig").Color;
+const serial = @import("debug/serial.zig");
 
 //fn os_banner() void {
 //    const title = "A/0 - v0.0.1";
@@ -19,70 +19,34 @@ const Color = @import("color.zig").Color;
 //    tty.colorPrint(Color.LightBlue, "Booting the microkernel:\n");
 //}
 
-var con_out: *uefi.protocols.SimpleTextOutputProtocol = undefined;
-
-fn puts(msg: []const u8) void {
-    for (msg) |c| {
-        const c_ = [2]u16{ c, 0 }; // work around https://github.com/ziglang/zig/issues/4372
-        _ = con_out.outputString(@ptrCast(*const [1:0]u16, &c_));
-    }
-}
-
-fn printf(buf: []u8, comptime format: []const u8, args: anytype) void {
-    puts(fmt.bufPrint(buf, format, args) catch unreachable);
-}
-
-pub fn nanosleep(ns: u64) void {
-    _ = uefi.system_table.boot_services.?.stall(ns);
-}
-
-pub fn microsleep(ms: u64) void {
-    nanosleep(ms * 1000);
-}
-
-pub fn sleep(s: u64) void {
-    microsleep(s * 1000);
-}
-
-var con_in: *uefi.protocols.SimpleTextInputProtocol = undefined;
-pub fn waitForUserInput() void {
-    var key: uefi.protocols.InputKey = undefined;
-    while (con_in.readKeyStroke(&key) != uefi.Status.Success) {}
-}
-
-fn user_fun() void {
-    while (true) {}
-}
-
 pub fn main() void {
-    con_out = uefi.system_table.con_out.?;
-    con_in = uefi.system_table.con_in.?;
-    var buf: [256]u8 = undefined;
-
     // FIXME(Ryan): complete the Graphics & TTY kernel impl to enable scrolling.
     // Then reuse it for everything else.
     uefiMemory.initialize();
+    uefiConsole.initialize();
     graphics.initialize();
+    serial.initialize(serial.SERIAL_COM1, 2);
 
     // UEFI-specific initialization
     const bootServices = uefi.system_table.boot_services.?;
+    uefiSystemInfo.dumpAndAssertPlatformState();
+    uefiConsole.puts("UEFI memory and debug console setup. Exitting boot services.\r\n");
+    //graphics.selfTest();
 
-    // printf(buf[0..], "EFER MSR: {}\r\n", .{platform.readMSR(platform.EFER_MSR)});
-    uefiSystemInfo.dumpAndAssertPlatformState(con_out);
-
-    printf(buf[0..], "Quitting boot services, memory map key: {}\r\n", .{uefiMemory.memoryMap.key});
     uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
     var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
-
     if (retCode != uefi.Status.Success) {
-        printf(buf[0..], "Failed to exit boot services, err code: {}, returning to EFI caller after input.\r\n", .{retCode});
-        waitForUserInput();
         return;
     }
+    uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
+    serial.writeText("Boot services exitted. UEFI console is now unavailable.\n");
 
     // runtimeServices.set_virtual_address_map();
 
+    serial.writeText("Platform initialization...\n");
     platform.initialize();
+    serial.writeText("Platform initialized.\n");
+
     //mem.initialize(MEMORY_OFFSET);
     //timer.initialize(100);
     //scheduler.initialize();
@@ -91,7 +55,7 @@ pub fn main() void {
 
     // The OS is now running.
     platform.cli(); // Disable interrupts.
-    var user_stack: [1024]u64 = undefined;
-    platform.liftoff(&user_fun, &user_stack[1023]); // Go to userspace.
+    // var user_stack: [1024]u64 = undefined;
+    // platform.liftoff(&user_fun, &user_stack[1023]); // Go to userspace.
     platform.hlt();
 }

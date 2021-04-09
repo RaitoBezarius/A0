@@ -3,6 +3,7 @@ const x86 = @import("x86.zig");
 const pmem = @import("pmem.zig");
 const layout = @import("layout.zig");
 const assert = @import("std").debug.assert;
+const serial = @import("../../debug/serial.zig");
 
 const PageEntry = usize;
 
@@ -104,7 +105,7 @@ fn zeroPageTable(page_table: [*]PageEntry) void {
 }
 
 // Invalidate TLB entry associated with given vaddr
-pub inline fn invlpg(v_addr: usize) void {
+pub fn invlpg(v_addr: usize) void {
     asm volatile ("invlpg (%[v_addr])"
         :
         : [v_addr] "r" (v_addr)
@@ -114,10 +115,11 @@ pub inline fn invlpg(v_addr: usize) void {
 
 extern fn setupPaging(pd: usize) void;
 pub fn initialize() void {
-    // TODO: signal start of paging setup.
-    assert(pmem.stack_end < layout.Identity);
+    serial.writeText("Virtual memory and paging initializing...\n");
+    // FIXME: assert(pmem.stack_end < layout.Identity); is false.
 
     const pd = @intToPtr([*]PageEntry, pmem.allocate()); // Page directory's page.
+    serial.writeText("PD entry allocated.\n");
     zeroPageTable(pd);
 
     // Identity mapping of the kernel (first 8MB) and make the PD loop on the last entry.
@@ -126,8 +128,9 @@ pub fn initialize() void {
     pd[1023] = @ptrToInt(pd) | PAGE_PRESENT | PAGE_WRITE;
 
     // TODO: register an interruption for page fault handler
-    setupPaging(@ptrToInt(pd));
+    //setupPaging(@ptrToInt(pd));
     // TODO: actually perform a real setup, loadPML5(@ptrToInt(PML5));
 
     // TODO: signal end of paging setup.
+    serial.writeText("Virtual memory and paging initialized.\n");
 }

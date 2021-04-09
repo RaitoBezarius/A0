@@ -1,5 +1,6 @@
 const std = @import("std");
 const platform = @import("../platform.zig");
+const uefiConsole = @import("console.zig");
 
 const L = std.unicode.utf8ToUtf16LeStringLiteral;
 const uefi = std.os.uefi;
@@ -14,42 +15,35 @@ const LONG_MODE_ENABLED = L("Long mode is enabled\r\n");
 const WARN_LONG_MODE_UNSUPPORTED = L("Long mode is not enabled\r\n");
 const WARN_NO_CPUID = L("No CPUID instruction was detected, prepare for unforeseen consequences.\r\n");
 
-pub fn dumpAndAssertPlatformState(conOut: *uefi.protocols.SimpleTextOutputProtocol) void {
+pub fn dumpAndAssertPlatformState() void {
     if (!platform.isProtectedMode()) {
-        _ = conOut.outputString(NO_PROTECT);
         platform.hang();
     }
 
-    if (platform.isPagingEnabled()) {
-        _ = conOut.outputString(PAGING_ENABLED);
-    }
+    if (platform.isPagingEnabled()) {}
 
-    if (platform.isPAEEnabled()) {
-        _ = conOut.outputString(PAE_ENABLED);
-    }
+    if (platform.isPAEEnabled()) {}
 
-    if (platform.isPSEEnabled()) {
-        _ = conOut.outputString(PSE_ENABLED);
-    }
+    if (platform.isPSEEnabled()) {}
 
-    if (platform.isTSSSet()) {
-        _ = conOut.outputString(WARN_TSS_SET);
-    }
+    if (platform.isTSSSet()) {}
 
-    if (platform.isX87EmulationEnabled()) {
-        _ = conOut.outputString(WARN_EM_SET);
-    }
+    if (platform.isX87EmulationEnabled()) {}
 
     // FIXME(Ryan): find out a way to detect CPUID.
     //if (!platform.hasCPUID()) {
     //    _ = conOut.outputString(WARN_NO_CPUID);
     //}
 
-    if (platform.isLongModeEnabled()) {
-        _ = conOut.outputString(LONG_MODE_ENABLED);
-    } else {
-        _ = conOut.outputString(WARN_LONG_MODE_UNSUPPORTED);
+    if (platform.isLongModeEnabled()) {} else {}
+
+    // Handle Loaded Image Protocol and print driverpoint.
+    var loadedImage: *uefi.protocols.LoadedImageProtocol = undefined;
+    var retCode = uefi.system_table.boot_services.?.handleProtocol(uefi.handle, &uefi.protocols.LoadedImageProtocol.guid, @ptrCast(*?*c_void, &loadedImage));
+    if (retCode != uefi.Status.Success) {
+        platform.hang();
     }
 
-    _ = conOut.outputString(L("Platform state dumped.\r\n"));
+    var buf: [4096]u8 = undefined;
+    uefiConsole.printf(buf[0..], "Loaded image: base={x}\r\n", .{@ptrToInt(loadedImage.image_base)});
 }
