@@ -17,6 +17,56 @@ pub fn build(b: *Builder) void {
     exe.setOutputDir("build/EFI/BOOT");
     b.default_step.dependOn(&exe.step);
 
+    const extractDebugInfo = b.addSystemCommand(&[_][]const u8{
+        "objcopy",
+        "-j",
+        ".text",
+        "-j",
+        ".data",
+        "-j",
+        ".reloc",
+        "-j",
+        ".debug_info",
+        "-j",
+        ".debug_abbrev",
+        "-j",
+        ".debug_loc",
+        "-j",
+        ".debug_ranges",
+        "-j",
+        ".debug_pubnames",
+        "-j",
+        ".debug_pubtypes",
+        "-j",
+        ".debug_line",
+        "-j",
+        ".debug_macinfo",
+        "-j",
+        ".debug_str",
+        "--target=efi-app-x86_64",
+        "build/EFI/BOOT/BootX64.efi",
+        "build/EFI/BOOT/BootX64.debug",
+    });
+    extractDebugInfo.step.dependOn(&exe.step);
+    b.default_step.dependOn(&extractDebugInfo.step);
+
+    const stripDebugInfo = b.addSystemCommand(&[_][]const u8{
+        "objcopy",
+        "-j",
+        ".text",
+        "-j",
+        ".sdata",
+        "-j",
+        ".data",
+        "-j",
+        ".reloc",
+        "--target=efi-app-x86_64",
+        "build/EFI/BOOT/BootX64.efi",
+        "build/EFI/BOOT/BootX64.efi",
+    });
+    //extractDebugInfo.step.dependOn(&exe.step);
+    //b.default_step.dependOn(&stripDebugInfo.step);
+
     const uefiStartupScript = b.addWriteFile("startup.nsh", "\\EFI\\BOOT\\BootX64.efi");
     const uefi_fw_path = std.os.getenv("OVMF_FW_CODE_PATH") orelse "ovmf_code_x64.bin";
 
