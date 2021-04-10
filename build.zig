@@ -7,7 +7,7 @@ pub fn build(b: *Builder) void {
     exe.addAssemblyFile("src/kernel/arch/x86/platform.s");
     exe.addAssemblyFile("src/kernel/arch/x86/vmem.s");
     exe.addAssemblyFile("src/kernel/arch/x86/gdt.s");
-    // exe.addAssemblyFile("src/kernel/arch/x86/isr.s");
+    exe.addAssemblyFile("src/kernel/arch/x86/isr.s");
 
     exe.setBuildMode(b.standardReleaseOptions());
     exe.setTarget(.{
