@@ -6,6 +6,7 @@ const psf2 = @import("fonts/psf2.zig");
 const ColorMod = @import("color.zig");
 const Color = ColorMod.Color;
 const uefiConsole = @import("uefi/console.zig");
+const serial = @import("debug/serial.zig");
 
 var graphicsOutputProtocol: ?*uefi.protocols.GraphicsOutputProtocol = undefined;
 
@@ -37,7 +38,7 @@ var fb: Framebuffer = Framebuffer{
 };
 
 const CursorState = struct {
-    x: i32, y: i32
+    x: u32, y: u32
 };
 
 const ScreenState = struct {
@@ -62,12 +63,12 @@ fn setupMode(index: u32) void {
     fb.valid = true;
 
     // Put the cursor at the center.
-    state.cursor.x = @divTrunc(@bitCast(i32, fb.width), 2);
-    state.cursor.y = @divTrunc(@bitCast(i32, fb.height), 2);
+    //state.cursor.x = @divTrunc(@bitCast(i32, fb.width), 2);
+    // state.cursor.y = 100;
 }
 
-const MOST_APPROPRIATE_W = 1920;
-const MOST_APPROPRIATE_H = 1440;
+const MOST_APPROPRIATE_W = 1280;
+const MOST_APPROPRIATE_H = 1024;
 fn selectBestMode() void {
     var bestMode = .{ graphicsOutputProtocol.?.mode.mode, graphicsOutputProtocol.?.mode.info };
     var i: u8 = 0;
@@ -97,11 +98,6 @@ fn selectBestMode() void {
     }
 
     setupMode(bestMode.@"0");
-}
-
-pub fn setPixel(w: u32, h: u32, rgb: u32) void {
-    if (!fb.valid) panic("Invalid framebuffer!");
-    fb.basePtr[4 * (w + h * fb.pixelsPerScanLine)] = pixelFromColor(@intToEnum(Color, rgb | 0xff000000));
 }
 
 pub fn initialize() void {
@@ -149,6 +145,13 @@ pub fn panic(msg: []const u8) void {
     platform.hang();
 }
 
+pub fn setPixel(x: u32, y: u32, c: Color) void {
+    if (!fb.valid) panic("Invalid framebuffer!");
+    const fbAddr = (y * fb.pixelsPerScanLine + x);
+
+    fb.basePtr[fbAddr] = pixelFromColor(c);
+}
+
 pub fn clear(color: Color) void {
     drawRect(fb.width, fb.height, color);
     // TODO: Reset cursor.
@@ -163,16 +166,14 @@ pub fn getTextColor() Color {
 pub fn drawRect(w: u32, h: u32, c: Color) void {
     if (!fb.valid) panic("Invalid framebuffer!");
     var i: u32 = 0;
-    var where: [*]u8 = @ptrCast([*]u8, fb.basePtr);
+    var where: [*]Pixel = fb.basePtr;
 
     while (i < w) : (i += 1) {
         var j: u32 = 0;
-        while (j <= h) : (j += 1) {
-            where[4 * j] = ColorMod.R(c);
-            where[4 * j + 1] = ColorMod.G(c);
-            where[4 * j + 2] = ColorMod.B(c);
+        while (j < h) : (j += 1) {
+            where[j] = pixelFromColor(c);
         }
-        where += 3200;
+        where += 800;
     }
 }
 
@@ -180,11 +181,12 @@ pub fn drawChar(c: u8, fg: Color, bg: Color) void {
     if (!fb.valid) panic("Invalid framebuffer!");
     // Draw a character at the current cursor.
     var buf: [4096]u8 = undefined;
-    uefiConsole.printf(buf[0..], "write {} @ cursor: {}\r\n", .{ c, state.cursor });
-    uefiConsole.puts(psf2.debugGlyph(buf[0..], psf2.defaultFont, @as(u32, c)));
+    serial.printf(buf[0..], "write {} @ cursor: {}\n", .{ c, state.cursor });
+    serial.writeText(psf2.debugGlyph(buf[0..], psf2.defaultFont, @as(u32, c)));
+    serial.writeText("\n");
     psf2.renderChar(psf2.defaultFont, @ptrCast([*]u8, fb.basePtr), c, state.cursor.x, state.cursor.y, @enumToInt(fg), @enumToInt(bg), fb.pixelsPerScanLine);
 
-    state.cursor.x += 1;
+    state.cursor.x += 2;
     if (state.cursor.x >= fb.width) {
         state.cursor.y += 1;
         state.cursor.x = 0;
@@ -199,6 +201,18 @@ pub fn alignLeft(offset: usize) void {
 
 pub fn selfTest() void {
     clear(Color.Black);
-    drawChar('a', Color.White, Color.Black);
-    //clear(Color.White);
+    psf2.selfTest();
+
+    var glyph: [16]u8 = (@bitCast([16]u8, @as(u128, 0x8040201008040201))); //0xb9a5b9817e000000))); //0x000000e7189b5a9b)));
+
+    var buf: [4096]u8 = undefined;
+    serial.printf(buf[0..], "glyph: {x}\n", .{@bitCast(u128, glyph)});
+
+    var y: u32 = 0;
+    while (y < 16) : (y += 1) {
+        var x: u32 = 0;
+        while (x < 8) : (x += 1) {
+            setPixel(state.cursor.x * 8 + x, state.cursor.y * 16 + y, if ((glyph[y] & (@as(u32, 1) << @truncate(u3, x))) != 0) Color.White else Color.Black);
+        }
+    }
 }
