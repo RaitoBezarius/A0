@@ -5,37 +5,52 @@ const uefiConsole = @import("console.zig");
 const L = std.unicode.utf8ToUtf16LeStringLiteral;
 const uefi = std.os.uefi;
 
-const NO_PROTECT = L("Protected mode not enabled, UEFI specification violation!\r\n");
-const PAGING_ENABLED = L("Paging is enabled\r\n");
-const PAE_ENABLED = L("PAE is enabled\r\n");
-const PSE_ENABLED = L("PSE is enabled\r\n");
-const WARN_TSS_SET = L("WARNING: task switch flag is set\r\n");
-const WARN_EM_SET = L("WARNING: x87 emulation is enabled\r\n");
-const LONG_MODE_ENABLED = L("Long mode is enabled\r\n");
-const WARN_LONG_MODE_UNSUPPORTED = L("Long mode is not enabled\r\n");
-const WARN_NO_CPUID = L("No CPUID instruction was detected, prepare for unforeseen consequences.\r\n");
+const NO_PROTECT = "Protected mode not enabled, UEFI specification violation!\r\n";
+const PAGING_ENABLED = "Paging is enabled\r\n";
+const PAE_ENABLED = "PAE is enabled\r\n";
+const PSE_ENABLED = "PSE is enabled\r\n";
+const WARN_TSS_SET = "WARNING: task switch flag is set\r\n";
+const WARN_EM_SET = "WARNING: x87 emulation is enabled\r\n";
+const LONG_MODE_ENABLED = "Long mode is enabled\r\n";
+const WARN_LONG_MODE_UNSUPPORTED = "Long mode is not enabled\r\n";
+const WARN_NO_CPUID = "No CPUID instruction was detected, prepare for unforeseen consequences.\r\n";
 
 pub fn dumpAndAssertPlatformState() void {
     if (!platform.isProtectedMode()) {
+        uefiConsole.puts(NO_PROTECT);
         platform.hang();
     }
 
-    if (platform.isPagingEnabled()) {}
+    if (platform.isPagingEnabled()) {
+        uefiConsole.puts(PAGING_ENABLED);
+    }
 
-    if (platform.isPAEEnabled()) {}
+    if (platform.isPAEEnabled()) {
+        uefiConsole.puts(PAE_ENABLED);
+    }
 
-    if (platform.isPSEEnabled()) {}
+    if (platform.isPSEEnabled()) {
+        uefiConsole.puts(PSE_ENABLED);
+    }
 
-    if (platform.isTSSSet()) {}
+    if (platform.isTSSSet()) {
+        uefiConsole.puts(WARN_TSS_SET);
+    }
 
-    if (platform.isX87EmulationEnabled()) {}
+    if (platform.isX87EmulationEnabled()) {
+        uefiConsole.puts(WARN_EM_SET);
+    }
 
     // FIXME(Ryan): find out a way to detect CPUID.
     //if (!platform.hasCPUID()) {
     //    _ = conOut.outputString(WARN_NO_CPUID);
     //}
 
-    if (platform.isLongModeEnabled()) {} else {}
+    if (platform.isLongModeEnabled()) {
+        uefiConsole.puts(LONG_MODE_ENABLED);
+    } else {
+        uefiConsole.puts(WARN_LONG_MODE_UNSUPPORTED);
+    }
 
     // Handle Loaded Image Protocol and print driverpoint.
     var loadedImage: *uefi.protocols.LoadedImageProtocol = undefined;

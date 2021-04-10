@@ -62,6 +62,10 @@ pub fn writeText(s: []const u8) void {
     }
 }
 
+pub fn printf(buf: []u8, comptime format: []const u8, args: anytype) void {
+    writeText(std.fmt.bufPrint(buf, format, args) catch unreachable);
+}
+
 fn has_received() bool {
     return (in(u8, port + 5) & 1) != 0;
 }

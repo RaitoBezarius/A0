@@ -1,3 +1,5 @@
+const serial = @import("../../debug/serial.zig");
+
 pub const KERNEL_CODE = 0x08;
 pub const KERNEL_DATA = 0x10;
 pub const USER_CODE = 0x20;
@@ -77,6 +79,28 @@ pub fn ltr(desc: u16) void {
     );
 }
 
+pub fn loadGDTAndTSS(gdt_ptr: *const GDTRegister) void {
+    asm volatile (
+        \\lgdt (%[gptr])
+        \\mov %[tss], %%ax
+        \\ltr %%ax
+        \\mov %[kernel_data_segment], %%ax
+        \\mov %%ax, %%ds
+        \\mov %%ax, %%es
+        \\mov %%ax, %%fs
+        \\mov %%ax, %%gs
+        \\mov %%ax, %%ss
+        \\mov %[kernel_code_segment], %%rax
+        \\push %%rax
+        :
+        : [gptr] "r" (gdt_ptr),
+          [tss] "r" (@as(u16, TSS_LOW)),
+          [kernel_data_segment] "i" (@as(u16, KERNEL_DATA)),
+          [kernel_code_segment] "i" (@as(u16, KERNEL_CODE))
+        : "memory"
+    );
+}
+
 pub fn readGDT() []GDTEntry {
     var gdtr_buffer: GDTRegister = undefined;
 
@@ -88,8 +112,9 @@ pub fn readGDT() []GDTEntry {
 }
 
 pub fn initialize() void {
+    serial.writeText("gdt: GDT initialization...\n");
     @memset(@ptrCast([*]u8, &tss), 0, @sizeOf(TSS));
-    loadGDT(&gdtr);
+    serial.writeText("gdt: TSS zeroed.\n");
 
     // Initialize TSS.
     const tssBase = @ptrToInt(&tss);
@@ -99,6 +124,9 @@ pub fn initialize() void {
     gdt[TSS_LOW / @sizeOf(GDTEntry)] = lowTSSEntry;
     gdt[TSS_HIGH / @sizeOf(GDTEntry)] = highTSSEntry;
 
+    serial.writeText("gdt: TSS ready.\n");
+
     // Load the TSS segment.
-    ltr(TSS_LOW);
+    loadGDTAndTSS(&gdtr);
+    serial.writeText("gdt: GDT and TSS loaded.\n");
 }

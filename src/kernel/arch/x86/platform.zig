@@ -6,9 +6,10 @@ pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
 
 pub fn initialize() void {
-    // gdt.initialize(); oula fais pas ça.
+    cli();
     // TODO(interrupts): idt.initialize();
     pmem.initialize();
+    gdt.initialize();
     vmem.initialize();
 
     //enableSystemCallExtensions();
