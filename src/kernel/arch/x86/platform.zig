@@ -124,7 +124,7 @@ pub fn readMSR(msr: u32) u64 {
         \\rdmsr
         \\shl $32, %%rdx
         \\or %%rdx, %%rax
-        \\mov %[result], %%rdx
+        \\mov %%rax, %[result]
         : [result] "=r" (-> u64)
         : [msr] "{rcx}" (msr)
     );
@@ -144,10 +144,8 @@ pub fn isLongModeEnabled() bool {
     var registers: [4]u32 = cpuid(0x80000000, 0);
     if (registers[0] < 0x80000001) return false;
 
-    registers = cpuid(0x80000001, 0);
     var eferMSR: u64 = readMSR(EFER_MSR);
-
-    return (registers[3] & (1 << 29)) == (1 << 29) and (eferMSR & (1 << 10)) == (1 << 10);
+    return (eferMSR & (1 << 10)) != 0 and (eferMSR & (1 << 8)) != 0; // EFER.LMA & EFER.LME.
 }
 
 pub const STAR_MSR = 0xC0000081;
