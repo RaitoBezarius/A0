@@ -72,13 +72,7 @@ pub const Context = packed struct {
 
 // Structure holding general purpose registers as saved by isrCommon.
 pub const Registers = packed struct {
-    rax: u64,
-    rcx: u64,
-    rdx: u64,
-    rbx: u64,
-    rbp: u64,
-    rsi: u64,
-    rdi: u64,
+    rax: u64, rcx: u64, rdx: u64, rsi: u64, rdi: u64, r8: u64, r9: u64, r10: u64, r11: u64
 };
 
 // Pointer to the current saved context.
