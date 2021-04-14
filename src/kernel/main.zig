@@ -31,6 +31,7 @@ pub fn main() void {
     // Then reuse it for everything else.
     uefiMemory.initialize();
     uefiConsole.initialize();
+
     uefiConsole.puts("UEFI console initialized.\r\n");
     serial.initialize(serial.SERIAL_COM1, 2);
     uefiConsole.puts("User serial console initialized.\r\n");
@@ -41,6 +42,10 @@ pub fn main() void {
     const bootServices = uefi.system_table.boot_services.?;
     uefiSystemInfo.dumpAndAssertPlatformState();
     uefiConsole.puts("UEFI memory and debug console setup. Exitting boot services.\r\n");
+
+    serial.writeText("Platform initialization...\n");
+    platform.initialize(uefiAllocator.systemAllocator);
+    serial.writeText("Platform initialized, can now exit boot services.\n");
 
     uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
     var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
@@ -54,10 +59,6 @@ pub fn main() void {
     serial.writeText("Graphics subsystem self test completed.\n");
 
     // runtimeServices.set_virtual_address_map();
-
-    serial.writeText("Platform initialization...\n");
-    platform.initialize();
-    serial.writeText("Platform initialized.\n");
 
     //mem.initialize(MEMORY_OFFSET);
     //timer.initialize(100);

@@ -1,3 +1,4 @@
+const std = @import("std");
 const gdt = @import("gdt.zig");
 const vmem = @import("vmem.zig");
 const pmem = @import("pmem.zig");
@@ -5,14 +6,14 @@ const pmem = @import("pmem.zig");
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
 
-pub fn initialize() void {
-    cli();
+pub fn initialize(allocator: *std.mem.Allocator) void {
+    //cli();
     // TODO(interrupts): idt.initialize();
-    pmem.initialize();
+    pmem.initialize(allocator);
     gdt.initialize();
     vmem.initialize();
 
-    //enableSystemCallExtensions();
+    enableSystemCallExtensions();
     // pic.initialize();
     // isr.initialize();
     // irq.initialize();

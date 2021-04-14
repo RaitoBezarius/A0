@@ -1,5 +1,6 @@
 const utils = @import("utils.zig");
 const x86 = @import("x86.zig");
+const platform = @import("platform.zig");
 const pmem = @import("pmem.zig");
 const layout = @import("layout.zig");
 const assert = @import("std").debug.assert;
@@ -116,7 +117,6 @@ pub fn invlpg(v_addr: usize) void {
 extern fn setupPaging(pd: usize) void;
 pub fn initialize() void {
     serial.writeText("Virtual memory and paging initializing...\n");
-    assert(pmem.stack_end < layout.Identity);
 
     const pd = @intToPtr([*]PageEntry, pmem.allocate()); // Page directory's page.
     serial.writeText("PD entry allocated.\n");
@@ -128,7 +128,7 @@ pub fn initialize() void {
     pd[1023] = @ptrToInt(pd) | PAGE_PRESENT | PAGE_WRITE;
 
     // TODO: register an interruption for page fault handler
-    //setupPaging(@ptrToInt(pd));
+    platform.writeCR("3", @ptrToInt(pd));
     // TODO: actually perform a real setup, loadPML5(@ptrToInt(PML5));
 
     // TODO: signal end of paging setup.

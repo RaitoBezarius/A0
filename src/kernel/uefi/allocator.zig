@@ -15,9 +15,7 @@ var systemAllocatorState = Allocator{
 pub const systemAllocator = &systemAllocatorState;
 
 const ALLOCATION_HEADER_COOKIE = 0x3b064be8fe2dc;
-const AllocationHeader = struct {
-    cookie: u64, size: usize, base: [*]align(8) u8
-};
+const AllocationHeader = struct { cookie: u64, size: usize, base: [*]align(8) u8 };
 
 // This function assumes that we have not exited boot services, otherwise KVM internal error or UEFI system reset will kick in.
 fn alloc(allocator: *Allocator, n: usize, ptrAlign: u29, lenAlign: u29, ra: usize) error{OutOfMemory}![]u8 {
