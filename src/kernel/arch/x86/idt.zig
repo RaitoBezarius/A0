@@ -18,23 +18,23 @@ pub const InterruptGateFlags = IDTFlags{
     .present = 1,
 };
 
-const IDTEntry = packed struct {
+const IDTEntry = extern struct {
     offset_low: u16, // 0..15
     selector: u16,
-    ist: u2,
-    zero_1: u6 = 0,
-    gate_type: u4,
-    storage_segment: u1,
-    privilege: u2,
-    present: u1,
-    offset_high: u48, // 16..63.
-    zero_2: u32 = 0,
+    flags: u16,
+    offset_mid: u16, // 16..31
+    offset_high: u32, // 31..63
+    zero: u32 = 0,
 
     fn setFlags(self: *IDTEntry, flags: IDTFlags) void {
-        self.gate_type = flags.gate_type;
-        self.storage_segment = flags.storage_segment;
-        self.privilege = flags.privilege;
-        self.present = flags.present;
+        const flags_low: u8 = (@as(u8, flags.present) << 7) | (@as(u8, flags.privilege) << 5) | (@as(u8, flags.storage_segment) << 4) | flags.gate_type;
+        self.flags = flags_low | (0x0 << 8); // 0x0 := ist,zero_1.
+    }
+
+    fn setOffset(self: *IDTEntry, offset: u64) void {
+        self.offset_low = @truncate(u16, offset);
+        self.offset_mid = @truncate(u16, offset >> 16);
+        self.offset_high = @truncate(u32, offset >> 32);
     }
 };
 
@@ -48,14 +48,15 @@ var idt: [256]IDTEntry = undefined;
 const idtr = IDTRegister{ .limit = @as(u16, @sizeOf(@TypeOf(idt))), .base = &idt };
 
 pub fn setGate(n: u8, flags: IDTFlags, offset: fn () callconv(.C) void) void {
+    var buf: [4096]u8 = undefined;
     const intOffset = @ptrToInt(offset);
 
-    idt[n].offset_low = @truncate(u16, intOffset);
-    idt[n].offset_high = @truncate(u48, intOffset >> 16);
-
+    idt[n].setOffset(intOffset);
     idt[n].setFlags(flags);
 
     idt[n].selector = gdt.KERNEL_CODE;
+
+    serial.printf(buf[0..], "idt[{d}] = {}\n", .{ n, idt[n] });
 }
 
 // Load a new IDT
@@ -77,6 +78,9 @@ fn sidt() IDTRegister {
 
 pub fn initialize() void {
     serial.writeText("IDT initializing...\n");
+
+    var buf: [4096]u8 = undefined;
+    serial.printf(buf[0..], "IDT entry size: {d}\n", .{@sizeOf(IDTEntry)});
 
     interrupts.initialize();
     lidt(@ptrToInt(&idtr));

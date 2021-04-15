@@ -24,9 +24,7 @@ fn pixelFromColor(c: Color) Pixel {
     };
 }
 
-const Framebuffer = struct {
-    width: u32, height: u32, pixelsPerScanLine: u32, basePtr: [*]Pixel, valid: bool
-};
+const Framebuffer = struct { width: u32, height: u32, pixelsPerScanLine: u32, basePtr: [*]Pixel, valid: bool };
 
 var fb: Framebuffer = Framebuffer{
     .width = 0,
@@ -36,13 +34,9 @@ var fb: Framebuffer = Framebuffer{
     .valid = false,
 };
 
-const CursorState = struct {
-    x: i32, y: i32
-};
+const CursorState = struct { x: i32, y: i32 };
 
-const ScreenState = struct {
-    cursor: CursorState
-};
+const ScreenState = struct { cursor: CursorState };
 
 var state = ScreenState{
     .cursor = CursorState{
@@ -100,7 +94,7 @@ fn selectBestMode() void {
 }
 
 pub fn setPixel(w: u32, h: u32, rgb: u32) void {
-    if (!fb.valid) panic("Invalid framebuffer!");
+    if (!fb.valid) @panic("Invalid framebuffer!");
     fb.basePtr[4 * (w + h * fb.pixelsPerScanLine)] = pixelFromColor(@intToEnum(Color, rgb | 0xff000000));
 }
 
@@ -138,15 +132,8 @@ pub fn initialize() void {
         clear(Color.Black);
         uefiConsole.puts("Screen cleared.\r\n");
     } else {
-        panic("Graphics output protocol is NOT supported, failing.\r\n");
+        @panic("Graphics output protocol is NOT supported, failing.\n");
     }
-}
-
-pub fn panic(msg: []const u8) void {
-    uefiConsole.puts("***** KERNEL PANIC: ");
-    uefiConsole.puts(msg);
-    uefiConsole.puts("\r\n");
-    platform.hang();
 }
 
 pub fn clear(color: Color) void {
@@ -161,7 +148,7 @@ pub fn getTextColor() Color {
 }
 
 pub fn drawRect(w: u32, h: u32, c: Color) void {
-    if (!fb.valid) panic("Invalid framebuffer!");
+    if (!fb.valid) @panic("Invalid framebuffer!\n");
     var i: u32 = 0;
     var where: [*]u8 = @ptrCast([*]u8, fb.basePtr);
 
@@ -177,7 +164,7 @@ pub fn drawRect(w: u32, h: u32, c: Color) void {
 }
 
 pub fn drawChar(c: u8, fg: Color, bg: Color) void {
-    if (!fb.valid) panic("Invalid framebuffer!");
+    if (!fb.valid) @panic("Invalid framebuffer!");
     // Draw a character at the current cursor.
     var buf: [4096]u8 = undefined;
     uefiConsole.printf(buf[0..], "write {} @ cursor: {}\r\n", .{ c, state.cursor });

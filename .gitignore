@@ -10,3 +10,6 @@ src/uefi_vars.bin
 
 # Ignore debug log
 debug.log
+
+# Ignore local OVMF src for symbols
+ovmf-src

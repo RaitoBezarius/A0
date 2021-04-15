@@ -3,21 +3,26 @@ const gdt = @import("gdt.zig");
 const idt = @import("idt.zig");
 const vmem = @import("vmem.zig");
 const pmem = @import("pmem.zig");
+const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
 
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
 
-pub fn initialize(allocator: *std.mem.Allocator) void {
-    cli();
+pub fn preinitialize(allocator: *std.mem.Allocator) void {
+    cli(); // Disable all interrupts.
     pmem.initialize(allocator);
     gdt.initialize();
-    idt.initialize();
-    sti();
-    vmem.initialize();
+    // vmem.initialize();
     // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
+}
 
+pub fn initialize() void {
+    idt.initialize();
+    pit.initialize();
+    sti();
+    serial.writeText("Interrupts enabled.\n");
     // TODO: timer.initialize();
     // rtc.initialize();
 }
