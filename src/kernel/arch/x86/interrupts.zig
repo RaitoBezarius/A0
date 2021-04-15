@@ -37,6 +37,7 @@ fn unhandled() noreturn {
 }
 
 export fn interruptDispatch() void {
+    serial.writeText("!!!! INTERRUPT DISPATCH !!!!\n");
     const n = @truncate(u8, isr.context.interrupt_n);
 
     switch (n) {
@@ -86,7 +87,7 @@ pub fn maskIRQ(irq: u8, mask: bool) void {
     const port = if (irq < 8) @as(u16, PIC1_DATA) else @as(u16, PIC2_DATA);
     const old = in(u8, port);
 
-    const shift = irq % 8;
+    const shift = @truncate(u3, irq % 8);
     if (mask) {
         out(port, old | (@as(u8, 1) << shift));
     } else {
