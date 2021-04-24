@@ -1,0 +1,6 @@
+[submodule "vendor/edk2"]
+	path = vendor/edk2
+	url = https://github.com/RaitoBezarius/edk2
+[submodule "vendor/qemu"]
+	path = vendor/qemu
+	url = https://github.com/RaitoBezarius/qemu

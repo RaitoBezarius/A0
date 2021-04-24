@@ -1,18 +1,21 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> {
+  overlays = [ (import ./nix/overlays.nix) ]; # Patch EDK2 & OVMF
+} }:
 let
-  uefiWithDebug = pkgs.OVMF.overrideAttrs (old: {
-    buildPhase = ''
-      runHook preBuild
-      build -a X64 -b DEBUG -t GCC5 -p OvmfPkg/OvmfPkgX64.dsc -n $NIX_BUILD_CORES $buildFlags
-      runHook postBuild
-    '';
-  });
+  OVMF = pkgs.OVMF;
+  local-qemu = (pkgs.qemu.overrideAttrs (old: {
+    src = ./vendor/qemu;
+  }));
+  raito-pkgs = import (fetchTarball {
+    url = "https://github.com/RaitoBezarius/nixexprs/archive/f37bce8a179b86d2b062116e18d61f0628be8c70.tar.gz";
+    sha256 = "0ys6ha8dxbbibynjpsiqmb50d9dpb2lpmfi20ray49jyamp5fxix";
+  }) { inherit pkgs; };
   pePythonEnv = pkgs.python3.withPackages (ps: with ps; [ pefile ]);
   generate-symbols-script = pkgs.writeScriptBin "print-debug-script-for-ovmf" 
     ''
       #!${pkgs.stdenv.shell}
       LOG=''${1:-build/debug.log}
-      BUILD=''${2:-${uefiWithDebug}/X64}
+      BUILD=''${2:-${OVMF}/X64}
       SEARCHPATHS="''${BUILD} build/EFI/BOOT"
 
       cat ''${LOG} | grep Loading | grep -i efi | while read LINE; do
@@ -29,10 +32,23 @@ let
 in
 {
   shell = pkgs.mkShell {
-    buildInputs = with pkgs; [ raito-dev.zig qemu gdb socat radare2 rr
+    CACHE_NAME = "a0-kernel";
+    inputsFrom = [ local-qemu ];
+    nativeBuildInputs = with pkgs; [
+      OVMF
+    ];
+    buildInputs = with pkgs; [
+      cachix
+      raito-pkgs.zig
+      gdb socat radare2 rr
       (writeScriptBin "enter-qemu-monitor" ''
       #!${stdenv.shell}
       socat -,echo=0,icanon=0 unix-connect:qemu-monitor-socket
+    '')
+    (writeScriptBin "push-shell-to-cachix" ''
+      #!${stdenv.shell}
+      nix-store --query --references $(nix-instantiate shell.nix) | \
+      xargs nix-store --realise | xargs nix-store --query --requisites | cachix push $CACHE_NAME
     '')
     generate-symbols-script
     (writeScriptBin "sgdb" ''
@@ -48,7 +64,7 @@ in
       gdb -x /tmp/a0-gdbscript
     '')
     ];
-    OVMF_FW_CODE_PATH = with pkgs; "${(enableDebugging uefiWithDebug).fd}/FV/OVMF_CODE.fd";
-    OVMF_BASE = "${uefiWithDebug}/X64";
+    OVMF_FW_CODE_PATH = "${(pkgs.enableDebugging OVMF).fd}/FV/OVMF_CODE.fd";
+    OVMF_BASE = "${OVMF}/X64";
   };
 }
