@@ -1,12 +1,3 @@
-// Kernel stack for interrupt handling.
-// KERNEL_STACK = 0x10000
-// GDT selectors.
-KERNEL_DS = 0x10
-
-// not USER stack yet
-// USER_DS   = 0x23
-USER_DS = 0x10
-
 // Template for the Interrupt Service Routines.
 .macro isrGenerate n
     .align 4
@@ -23,45 +14,30 @@ USER_DS = 0x10
 
 // Common code for all Interrupt Service Routines.
 isrCommon:
-    push %rax
-    push %rcx
-    push %rdx
-    push %rsi
     push %rdi
+    push %rsi
+    push %rdx
+    push %rcx
     push %r8
     push %r9
     push %r10
     push %r11
 
-    // Setup kernel data segment.
-    // mov $KERNEL_DS, %ax
-    // mov %ax, %ds
-    // mov %ax, %es
-
-    // Save the pointer to the current context and switch to the kernel stack.
-    mov %rsp, context
-    // mov $KERNEL_STACK, %esp
-
+    // Save the pointer to the current context
+    mov %rsp, %rcx
     call interruptDispatch  // Handle the interrupt event.
-
     // Restore the pointer to the context (of a different thread, potentially).
-    // mov context, %esp
-
-    // Setup user data segment.
-    // mov $USER_DS, %ax
-    // mov %ax, %ds
-    // mov %ax, %es
+    mov %rax, %rsp
 
     pop %r11
     pop %r10
     pop %r9
     pop %r8
-    pop %rdi
-    pop %rsi
-    pop %rdx
     pop %rcx
-    pop %rax
-    add $12, %rsp  // Remove interrupt number and error code from stack.
+    pop %rdx
+    pop %rsi
+    pop %rdi
+    add $16, %rsp  // Remove interrupt number and error code from stack.
     iretq
 
 // Exceptions.

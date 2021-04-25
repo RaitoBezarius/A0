@@ -19,6 +19,7 @@ const CODE = 0x0A;
 const DATA = 0x02;
 const TSS_ACCESS = 0x89;
 
+const LONGMODE = (1 << 1);
 const PROTECTED = (1 << 2);
 const BLOCKS_4K = (1 << 3);
 
@@ -46,13 +47,13 @@ fn makeEntry(base: usize, limit: usize, access: u8, flags: u4) GDTEntry {
 
 var gdt align(4) = [_]GDTEntry{
     makeEntry(0, 0, 0, 0),
-    makeEntry(0, 0xFFFFF, KERNEL | CODE, PROTECTED | BLOCKS_4K), // Kernel base selector
-    makeEntry(0, 0xFFFFF, KERNEL | DATA, PROTECTED | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, KERNEL | CODE, LONGMODE | BLOCKS_4K), // Kernel base selector
+    makeEntry(0, 0xFFFFF, KERNEL | DATA, LONGMODE | BLOCKS_4K),
     makeEntry(0, 0, 0, 0), // User base selector
-    makeEntry(0, 0xFFFFF, USER | CODE, PROTECTED | BLOCKS_4K),
-    makeEntry(0, 0xFFFFF, USER | DATA, PROTECTED | BLOCKS_4K),
-    makeEntry(0, 0xFFFFF, OVMF | DATA, PROTECTED | BLOCKS_4K),
-    makeEntry(0, 0xFFFFF, OVMF | CODE, PROTECTED | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, USER | CODE, LONGMODE | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, USER | DATA, LONGMODE | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, OVMF | DATA, LONGMODE | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, OVMF | CODE, LONGMODE | BLOCKS_4K),
     makeEntry(0, 0, 0, 0), // TSS low
     makeEntry(0, 0, 0, 0), // TSS high
 };

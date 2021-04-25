@@ -52,10 +52,10 @@ extern fn isr47() void;
 extern fn isr128() void;
 
 // Context saved by Interrupt Service Routines.
-pub const Context = packed struct {
+pub const Context = extern struct {
     registers: Registers, // General purpose registers.
 
-    interrupt_n: u32, // Number of the interrupt.
+    interrupt_n: u64, // Number of the interrupt.
     error_code: u64, // Associated error code (or 0).
 
     // CPU status:
@@ -71,7 +71,7 @@ pub const Context = packed struct {
 };
 
 // Structure holding general purpose registers as saved by isrCommon.
-pub const Registers = packed struct { rax: u64, rcx: u64, rdx: u64, rsi: u64, rdi: u64, r8: u64, r9: u64, r10: u64, r11: u64 };
+pub const Registers = extern struct { r11: u64, r10: u64, r9: u64, r8: u64, rdi: u64, rsi: u64, rdx: u64, rcx: u64 };
 
 // Pointer to the current saved context.
 pub export var context: *volatile Context = undefined;
@@ -80,6 +80,7 @@ pub export var context: *volatile Context = undefined;
 //
 pub fn install_exceptions() void {
     // Exceptions.
+    idt.setGate(0, idt.InterruptGateFlags, isr0);
     idt.setGate(1, idt.InterruptGateFlags, isr1);
     idt.setGate(2, idt.InterruptGateFlags, isr2);
     idt.setGate(3, idt.InterruptGateFlags, isr3);

@@ -36,9 +36,12 @@ fn unhandled() noreturn {
     }
 }
 
-export fn interruptDispatch() void {
+export fn interruptDispatch(context: *volatile isr.Context) usize {
+    // Update context.
+    isr.context = context;
+
     serial.writeText("!!!! INTERRUPT DISPATCH !!!!\n");
-    const n = @truncate(u8, isr.context.interrupt_n);
+    const n = @truncate(u8, context.interrupt_n);
 
     switch (n) {
         EXCEPTION_0...EXCEPTION_31 => {
@@ -46,15 +49,14 @@ export fn interruptDispatch() void {
         },
         IRQ_0...IRQ_15 => {
             const irq = n - IRQ_0;
-            if (spuriousIRQ(n)) return;
+            if (spuriousIRQ(n)) return @ptrToInt(context);
             handlers[n]();
             signalEndOfInterrupt(n);
         },
         else => unreachable,
     }
 
-    sti();
-    hlt();
+    return @ptrToInt(context); // Return the proper rsp back.
 }
 
 fn spuriousIRQ(irq: u8) bool {

@@ -1,5 +1,7 @@
+const mem = @import("std").mem;
 const gdt = @import("gdt.zig");
 const interrupts = @import("interrupts.zig");
+const isr = @import("isr.zig");
 const serial = @import("../../debug/serial.zig");
 
 pub const IDTFlags = struct {
@@ -18,7 +20,11 @@ pub const InterruptGateFlags = IDTFlags{
     .present = 1,
 };
 
-const IDTEntry = extern struct {
+// u32, u32, u32
+// offset_low, selector
+// flags, offset_mid
+// offset_high
+const IDTEntry = packed struct {
     offset_low: u16, // 0..15
     selector: u16,
     flags: u16,
@@ -28,7 +34,7 @@ const IDTEntry = extern struct {
 
     fn setFlags(self: *IDTEntry, flags: IDTFlags) void {
         const flags_low: u8 = (@as(u8, flags.present) << 7) | (@as(u8, flags.privilege) << 5) | (@as(u8, flags.storage_segment) << 4) | flags.gate_type;
-        self.flags = flags_low | (0x0 << 8); // 0x0 := ist,zero_1.
+        self.flags = mem.nativeToBig(u16, flags_low | (0x0 << 8)); // TODO(Ryan): lol, just build correctly the flags. 0x0 := ist,zero_1.
     }
 
     fn setOffset(self: *IDTEntry, offset: u64) void {
@@ -55,8 +61,6 @@ pub fn setGate(n: u8, flags: IDTFlags, offset: fn () callconv(.C) void) void {
     idt[n].setFlags(flags);
 
     idt[n].selector = gdt.KERNEL_CODE;
-
-    serial.printf(buf[0..], "idt[{d}] = {}\n", .{ n, idt[n] });
 }
 
 // Load a new IDT
@@ -83,11 +87,26 @@ pub fn initialize() void {
     serial.printf(buf[0..], "IDT entry size: {d}\n", .{@sizeOf(IDTEntry)});
 
     interrupts.initialize();
+    interrupts.register(0, divide_by_zero);
+    interrupts.register(1, debug_trap);
+    interrupts.register(14, page_fault_handler);
     lidt(@ptrToInt(&idtr));
 
     serial.writeText("IDT initialized.\n");
 
     runtimeTests();
+}
+
+fn divide_by_zero() void {
+    serial.writeText("divide by zero!\n");
+}
+
+fn debug_trap() void {
+    serial.writeText("debug fault/trap\n");
+}
+
+fn page_fault_handler() void {
+    serial.writeText("page fault handler\n");
 }
 
 fn rt_loadedIDTProperly() void {

@@ -13,16 +13,15 @@ pub fn preinitialize(allocator: *std.mem.Allocator) void {
     cli(); // Disable all interrupts.
     pmem.initialize(allocator);
     gdt.initialize();
+    idt.initialize();
+    pit.initialize();
     // vmem.initialize();
     // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
 pub fn initialize() void {
-    idt.initialize();
-    pit.initialize();
     sti();
-    serial.writeText("Interrupts enabled.\n");
     // TODO: timer.initialize();
     // rtc.initialize();
 }
