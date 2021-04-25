@@ -125,6 +125,12 @@ fn getSelfDebugInfo() !*dwarf.DwarfInfo {
     return &S.self_debug_info;
 }
 
+pub fn ppanic(comptime format: []const u8, args: anytype) noreturn {
+    var buf: [4096]u8 = undefined;
+
+    panic(std.fmt.bufPrint(buf[0..], format, args) catch unreachable, null);
+}
+
 pub fn panic(msg: []const u8, error_return_trace: ?*builtin.StackTrace) noreturn {
     writeText("\n!!!!!!!!!!!!! KERNEL PANIC !!!!!!!!!!!!!!!\n");
     writeText(msg);

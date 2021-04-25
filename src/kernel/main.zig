@@ -43,9 +43,9 @@ pub fn main() void {
     uefiSystemInfo.dumpAndAssertPlatformState();
     uefiConsole.puts("UEFI memory and debug console setup. Exitting boot services.\r\n");
 
-    serial.writeText("Platform initialization...\n");
-    platform.initialize(uefiAllocator.systemAllocator);
-    serial.writeText("Platform initialized, can now exit boot services.\n");
+    serial.writeText("Platform preinitialization...\n");
+    platform.preinitialize(uefiAllocator.systemAllocator);
+    serial.writeText("Platform preinitialized, can now exit boot services.\n");
 
     uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
     var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
@@ -55,8 +55,12 @@ pub fn main() void {
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
     serial.writeText("Boot services exitted. UEFI console is now unavailable.\n");
 
+    serial.writeText("Platform initialization...\n");
+    platform.initialize();
+    serial.writeText("Platform initialized.\n");
+
     // graphics.selfTest();
-    serial.writeText("Graphics subsystem self test completed.\n");
+    //serial.writeText("Graphics subsystem self test completed.\n");
 
     // runtimeServices.set_virtual_address_map();
 
@@ -67,7 +71,6 @@ pub fn main() void {
     //tty.colorPrint(Color.LightBlue, "\nLoading the servers (driverspace):\n");
 
     // The OS is now running.
-    platform.cli(); // Disable interrupts.
     //var user_stack: [1024]u64 = undefined;
     //platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
     platform.hlt();

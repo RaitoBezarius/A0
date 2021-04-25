@@ -1,24 +1,28 @@
 const std = @import("std");
 const gdt = @import("gdt.zig");
+const idt = @import("idt.zig");
 const vmem = @import("vmem.zig");
 const pmem = @import("pmem.zig");
+const pit = @import("pit.zig");
+const serial = @import("../../debug/serial.zig");
 
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
 
-pub fn initialize(allocator: *std.mem.Allocator) void {
-    //cli();
-    // TODO(interrupts): idt.initialize();
+pub fn preinitialize(allocator: *std.mem.Allocator) void {
+    cli(); // Disable all interrupts.
     pmem.initialize(allocator);
     gdt.initialize();
-    vmem.initialize();
+    idt.initialize();
+    pit.initialize();
+    // vmem.initialize();
+    // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
+    // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
+}
 
-    enableSystemCallExtensions();
-    // pic.initialize();
-    // isr.initialize();
-    // irq.initialize();
-
-    // pit.initialize();
+pub fn initialize() void {
+    sti();
+    // TODO: timer.initialize();
     // rtc.initialize();
 }
 
@@ -53,14 +57,6 @@ pub fn sti() void {
 pub fn hang() noreturn {
     cli();
     hlt();
-}
-
-// Load a new IDT
-pub fn lidt(idtr: usize) void {
-    asm volatile ("lidt (%[idtr])"
-        :
-        : [idtr] "r" (idtr)
-    );
 }
 
 pub fn readCR(comptime number: []const u8) usize {
@@ -151,10 +147,13 @@ pub fn isLongModeEnabled() bool {
 
 pub const STAR_MSR = 0xC0000081;
 pub fn enableSystemCallExtensions() void {
+    serial.writeText("System call extensions will be enabled...\n");
+    var buf: [4096]u8 = undefined;
     var eferMSR = readMSR(EFER_MSR);
     writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.
     var starMSR = readMSR(STAR_MSR);
     writeMSR(STAR_MSR, 0x00180008); // GDT segment.
+    serial.writeText("System call extensions enabled.\n");
 }
 
 pub fn rdtsc() u64 {

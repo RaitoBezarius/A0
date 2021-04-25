@@ -19,6 +19,7 @@ const CODE = 0x0A;
 const DATA = 0x02;
 const TSS_ACCESS = 0x89;
 
+const LONGMODE = (1 << 1);
 const PROTECTED = (1 << 2);
 const BLOCKS_4K = (1 << 3);
 
@@ -46,13 +47,13 @@ fn makeEntry(base: usize, limit: usize, access: u8, flags: u4) GDTEntry {
 
 var gdt align(4) = [_]GDTEntry{
     makeEntry(0, 0, 0, 0),
-    makeEntry(0, 0xFFFFF, KERNEL | CODE, PROTECTED | BLOCKS_4K), // Kernel base selector
-    makeEntry(0, 0xFFFFF, KERNEL | DATA, PROTECTED | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, KERNEL | CODE, LONGMODE | BLOCKS_4K), // Kernel base selector
+    makeEntry(0, 0xFFFFF, KERNEL | DATA, LONGMODE | BLOCKS_4K),
     makeEntry(0, 0, 0, 0), // User base selector
-    makeEntry(0, 0xFFFFF, USER | CODE, PROTECTED | BLOCKS_4K),
-    makeEntry(0, 0xFFFFF, USER | DATA, PROTECTED | BLOCKS_4K),
-    makeEntry(0, 0xFFFFF, OVMF | DATA, PROTECTED | BLOCKS_4K),
-    makeEntry(0, 0xFFFFF, OVMF | CODE, PROTECTED | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, USER | CODE, LONGMODE | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, USER | DATA, LONGMODE | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, OVMF | DATA, LONGMODE | BLOCKS_4K),
+    makeEntry(0, 0xFFFFF, OVMF | CODE, LONGMODE | BLOCKS_4K),
     makeEntry(0, 0, 0, 0), // TSS low
     makeEntry(0, 0, 0, 0), // TSS high
 };
@@ -101,14 +102,14 @@ pub fn loadGDTAndTSS(gdt_ptr: *const GDTRegister) void {
     );
 }
 
-pub fn readGDT() []GDTEntry {
+pub fn readGDT() GDTRegister {
     var gdtr_buffer: GDTRegister = undefined;
 
     asm volatile ("sgdt %[input]"
         : [input] "=m" (gdtr_buffer)
     );
 
-    return gdtr_buffer.base[0 .. ((gdtr_buffer.limit + 1)) / @sizeOf(usize)];
+    return gdtr_buffer;
 }
 
 pub fn initialize() void {
@@ -129,4 +130,24 @@ pub fn initialize() void {
     // Load the TSS segment.
     loadGDTAndTSS(&gdtr);
     serial.writeText("gdt: GDT and TSS loaded.\n");
+
+    runtimeTests();
+}
+
+fn runtimeTests() void {
+    rt_properlyLoadedGDT();
+}
+
+fn rt_properlyLoadedGDT() void {
+    const loadedGDT = readGDT();
+
+    if (gdtr.limit != loadedGDT.limit) {
+        @panic("Fatal error: GDT limit is not properly set, loading failure.\n");
+    }
+
+    if (gdtr.base != loadedGDT.base) {
+        @panic("Fatal error: GDT base is not properly set, loading failure.\n");
+    }
+
+    serial.writeText("Runtime tests: GDT loading successful.\n");
 }

@@ -3,9 +3,7 @@ const debug = std.debug;
 const assert = debug.assert;
 const uefi = std.os.uefi;
 
-const MemorySystemInfo = struct {
-    totalAvailableMemory: usize = undefined
-};
+const MemorySystemInfo = struct { totalAvailableMemory: usize = undefined };
 var memorySystemInfoState = MemorySystemInfo{};
 pub const memorySystemInfo = &memorySystemInfoState;
 
@@ -21,7 +19,7 @@ pub const MemoryMap = struct {
         const MemoryType = uefi.tables.MemoryType;
 
         if (self.size > 0) {
-            _ = bootServices.freePool(@ptrCast([*]align(8) u8, &self.map));
+            _ = bootServices.freePool(@ptrCast([*]align(8) u8, self.map));
             self.size = 0;
         }
 

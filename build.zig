@@ -7,7 +7,7 @@ pub fn build(b: *Builder) void {
     exe.addAssemblyFile("src/kernel/arch/x86/platform.s");
     exe.addAssemblyFile("src/kernel/arch/x86/vmem.s");
     exe.addAssemblyFile("src/kernel/arch/x86/gdt.s");
-    // exe.addAssemblyFile("src/kernel/arch/x86/isr.s");
+    exe.addAssemblyFile("src/kernel/arch/x86/isr.s");
 
     exe.setBuildMode(b.standardReleaseOptions());
     exe.setTarget(.{
@@ -16,6 +16,35 @@ pub fn build(b: *Builder) void {
     });
     exe.setOutputDir("build/EFI/BOOT");
     b.default_step.dependOn(&exe.step);
+
+    const extractDebugInfo = b.addSystemCommand(&[_][]const u8{
+        "objcopy",
+        "-j",
+        ".text",
+        "-j",
+        ".debug_info",
+        "-j",
+        ".debug_abbrev",
+        "-j",
+        ".debug_loc",
+        "-j",
+        ".debug_ranges",
+        "-j",
+        ".debug_pubnames",
+        "-j",
+        ".debug_pubtypes",
+        "-j",
+        ".debug_line",
+        "-j",
+        ".debug_macinfo",
+        "-j",
+        ".debug_str",
+        "--target=efi-app-x86_64",
+        "build/EFI/BOOT/BootX64.efi",
+        "build/EFI/BOOT/BootX64.debug",
+    });
+    extractDebugInfo.step.dependOn(&exe.step);
+    b.default_step.dependOn(&extractDebugInfo.step);
 
     const uefiStartupScript = b.addWriteFile("startup.nsh", "\\EFI\\BOOT\\BootX64.efi");
     const uefi_fw_path = std.os.getenv("OVMF_FW_CODE_PATH") orelse "ovmf_code_x64.bin";
@@ -30,10 +59,12 @@ pub fn build(b: *Builder) void {
         "stdio",
         "-vga",
         "std",
-        "-machine",
-        "q35,accel=kvm:tcg",
-        // "-s",
-        // "-S",
+        //"-machine",
+        //"q35,accel=kvm:tcg",
+        //"-icount",
+        //"shift=7,rr=record,rrfile=build/qemu_replay.bin", // Time-travelling trace.
+        "-s",
+        "-S",
         "-m",
         "128M",
         "-boot",
@@ -47,7 +78,7 @@ pub fn build(b: *Builder) void {
         "-monitor",
         "unix:qemu-monitor-socket,server,nowait",
         "-debugcon",
-        "file:debug.log",
+        "file:build/debug.log",
         "-global",
         "isa-debugcon.iobase=0x402",
         "-d",
