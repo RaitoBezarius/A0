@@ -5,25 +5,83 @@ const vmem = @import("vmem.zig");
 const pmem = @import("pmem.zig");
 const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
+const Task = @import("../../task.zig").Task;
+const Allocator = std.mem.Allocator;
 
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
+
+// CPU context
+// Valid wrt interruptions.
+// TODO: support SYSENTER.
+pub const Context = extern struct {
+    registers: Registers, // General purpose registers.
+
+    interrupt_n: u64, // Number of the interrupt.
+    error_code: u64, // Associated error code (or 0).
+
+    // CPU status:
+    rip: u64,
+    cs: u64,
+    rflags: u64,
+    rsp: u64,
+    ss: u64,
+
+    pub fn setReturnValue(self: *volatile Context, value: anytype) void {
+        self.registers.rax = if (@TypeOf(value) == bool) @boolToInt(value) else @as(u64, value);
+    }
+};
+
+// Structure holding general purpose registers
+// Valid wrt to isrCommon.
+pub const Registers = extern struct { r11: u64, r10: u64, r9: u64, r8: u64, rcx: u64, rdx: u64, rsi: u64, rdi: u64, rbp: u64 };
 
 pub fn preinitialize(allocator: *std.mem.Allocator) void {
     cli(); // Disable all interrupts.
     pmem.initialize(allocator);
     gdt.initialize();
     idt.initialize();
-    pit.initialize();
     // vmem.initialize();
     // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
 pub fn initialize() void {
+    pit.initialize();
     sti();
     // TODO: timer.initialize();
     // rtc.initialize();
+}
+
+pub fn initializeTask(task: *Task, entrypoint: usize, allocator: *Allocator) Allocator.Error!void {
+    const dataOffset: usize = if (task.kernel) gdt.KERNEL_DATA else gdt.USER_DATA | 0b11;
+    const codeOffset: usize = if (task.kernel) gdt.KERNEL_CODE else gdt.USER_CODE | 0b11;
+
+    const kStackBottom = if (task.kernel) task.kernel_stack.len - 16 else task.kernel_stack.len - 18;
+
+    var stack = &task.kernel_stack;
+
+    // 8 zero Registers: r11, r10, r9, r8, rdi, rsi, rdx, rcx.
+    comptime var i = 0;
+    inline while (i <= 7) : (i += 1) {
+        stack.*[kStackBottom + i] = 0;
+    }
+    // Base stack pointer
+    stack.*[kStackBottom + 8] = @ptrToInt(&stack.*[stack.len - 1]);
+    // Int num
+    stack.*[kStackBottom + 9] = 0;
+    // Error code
+    stack.*[kStackBottom + 10] = 0;
+    // Reload data segment?
+    stack.*[kStackBottom + 11] = entrypoint; // RIP
+    stack.*[kStackBottom + 12] = codeOffset; // CS
+    stack.*[kStackBottom + 13] = 0x202; // RFLAGS
+    stack.*[kStackBottom + 14] = 0; // RSP
+    stack.*[kStackBottom + 15] = 0; // SS
+
+    // TODO(Ryan): handle when this is not a ktask and use virtual memory.
+
+    task.stack_pointer = @ptrToInt(&stack.*[kStackBottom]);
 }
 
 pub fn liftoff(userspace_fun_ptr: *const fn () void, userspace_stack: *u64) void {

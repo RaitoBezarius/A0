@@ -1,6 +1,7 @@
 const irq = @import("interrupts.zig");
 const platform = @import("platform.zig");
 const serial = @import("../../debug/serial.zig");
+const scheduler = @import("../../scheduler.zig");
 
 const IRQ_PIT = 0x00;
 
@@ -69,9 +70,10 @@ fn sendDataToCounter(cs: CounterSelect, data: u8) void {
     platform.out(cs.getRegister(), data);
 }
 
-fn pitHandler() void {
-    serial.writeText("PIT handler called\n");
+fn pitHandler(ctx: *platform.Context) usize {
     ticks +%= 1;
+
+    return scheduler.pickNextTask(ctx);
 }
 
 fn computeReloadValue(freq: u32) u32 {
