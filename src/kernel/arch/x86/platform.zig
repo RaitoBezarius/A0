@@ -76,11 +76,10 @@ pub fn initializeTask(task: *Task, entrypoint: usize, allocator: *Allocator) All
     stack.*[kStackBottom + 11] = entrypoint; // RIP
     stack.*[kStackBottom + 12] = codeOffset; // CS
     stack.*[kStackBottom + 13] = 0x202; // RFLAGS
-    stack.*[kStackBottom + 14] = 0; // RSP
+    stack.*[kStackBottom + 14] = stack.*[kStackBottom + 8]; // RSP
     stack.*[kStackBottom + 15] = 0; // SS
 
     // TODO(Ryan): handle when this is not a ktask and use virtual memory.
-
     task.stack_pointer = @ptrToInt(&stack.*[kStackBottom]);
 }
 
