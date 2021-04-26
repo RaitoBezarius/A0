@@ -48,7 +48,9 @@ pub const Task = struct {
     pub fn destroy(self: *Task, allocator: *Allocator) void {
         freePid(self.pid);
 
-        // TODO(Ryan): handle the init process when destroying it.
+        if (@ptrToInt(self.kernel_stack.ptr) != @frameAddress()) {
+            allocator.free(self.kernel_stack);
+        }
 
         if (!self.kernel) {
             allocator.free(self.user_stack);
