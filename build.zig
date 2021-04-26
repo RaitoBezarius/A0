@@ -14,6 +14,7 @@ pub fn build(b: *Builder) void {
         .cpu_arch = .x86_64,
         .os_tag = .uefi,
     });
+    //exe.setLinkerScriptPath("src/kernel/arch/x86/link.ld");
     exe.setOutputDir("build/EFI/BOOT");
     b.default_step.dependOn(&exe.step);
 

@@ -51,30 +51,6 @@ extern fn isr46() void;
 extern fn isr47() void;
 extern fn isr128() void;
 
-// Context saved by Interrupt Service Routines.
-pub const Context = extern struct {
-    registers: Registers, // General purpose registers.
-
-    interrupt_n: u64, // Number of the interrupt.
-    error_code: u64, // Associated error code (or 0).
-
-    // CPU status:
-    rip: u64,
-    cs: u64,
-    rflags: u64,
-    rsp: u64,
-    ss: u64,
-
-    pub fn setReturnValue(self: *volatile Context, value: anytype) void {
-        self.registers.rax = if (@TypeOf(value) == bool) @boolToInt(value) else @as(u64, value);
-    }
-};
-
-// Structure holding general purpose registers as saved by isrCommon.
-pub const Registers = extern struct { r11: u64, r10: u64, r9: u64, r8: u64, rdi: u64, rsi: u64, rdx: u64, rcx: u64 };
-
-// Pointer to the current saved context.
-pub export var context: *volatile Context = undefined;
 ////
 // Install the Interrupt Service Routines in the IDT.
 //

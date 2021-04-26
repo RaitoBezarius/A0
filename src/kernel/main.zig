@@ -1,5 +1,5 @@
-const uefi = @import("std").os.uefi;
-const L = @import("std").unicode.utf8ToUtf16LeStringLiteral;
+const std = @import("std");
+const uefi = std.os.uefi;
 
 const uefiAllocator = @import("uefi/allocator.zig");
 const uefiMemory = @import("uefi/memory.zig");
@@ -9,6 +9,7 @@ const uefiSystemInfo = @import("uefi/systeminfo.zig");
 const graphics = @import("graphics.zig");
 //const tty = @import("tty.zig");
 const platform = @import("platform.zig");
+const scheduler = @import("scheduler.zig");
 const serial = @import("debug/serial.zig");
 
 // Default panic handler for Zig.
@@ -41,7 +42,11 @@ pub fn main() void {
     // UEFI-specific initialization
     const bootServices = uefi.system_table.boot_services.?;
     uefiSystemInfo.dumpAndAssertPlatformState();
-    uefiConsole.puts("UEFI memory and debug console setup. Exitting boot services.\r\n");
+    uefiConsole.puts("UEFI memory and debug console setup.\r\n");
+
+    scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
+        serial.ppanic("Failed to initialize scheduler: {}", .{err});
+    };
 
     serial.writeText("Platform preinitialization...\n");
     platform.preinitialize(uefiAllocator.systemAllocator);

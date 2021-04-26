@@ -24,34 +24,34 @@ const EXCEPTION_31 = EXCEPTION_0 + 31;
 const IRQ_0 = EXCEPTION_31 + 1;
 const IRQ_15 = IRQ_0 + 15;
 
-var handlers = [_]fn () void{unhandled} ** 48;
+var handlers = [_]fn (*x86.Context) usize{unhandled} ** 48;
 
-fn unhandled() noreturn {
-    const n = isr.context.interrupt_n;
+fn unhandled(context: *x86.Context) usize {
+    const n = context.interrupt_n;
 
     if (n >= IRQ_0) {
         serial.ppanic("unhandled IRQ number: {d}", .{n - IRQ_0});
     } else {
         serial.ppanic("unhandled exception number: {d}", .{n});
     }
+
+    return @ptrToInt(context);
 }
 
-export fn interruptDispatch(context: *volatile isr.Context) usize {
-    // Update context.
-    isr.context = context;
-
+export fn interruptDispatch(context: *x86.Context) usize {
     serial.writeText("!!!! INTERRUPT DISPATCH !!!!\n");
     const n = @truncate(u8, context.interrupt_n);
 
     switch (n) {
         EXCEPTION_0...EXCEPTION_31 => {
-            handlers[n]();
+            return handlers[n](context);
         },
         IRQ_0...IRQ_15 => {
             const irq = n - IRQ_0;
             if (spuriousIRQ(n)) return @ptrToInt(context);
-            handlers[n]();
+            const retaddr = handlers[n](context);
             signalEndOfInterrupt(n);
+            return retaddr;
         },
         else => unreachable,
     }
@@ -76,11 +76,11 @@ fn signalEndOfInterrupt(irq: u8) void {
     out(PIC1_CMD, EOI);
 }
 
-pub fn register(n: u8, handler: fn () void) void {
+pub fn register(n: u8, handler: fn (*x86.Context) usize) void {
     handlers[n] = handler;
 }
 
-pub fn registerIRQ(irq: u8, handler: fn () void) void {
+pub fn registerIRQ(irq: u8, handler: fn (*x86.Context) usize) void {
     register(IRQ_0 + irq, handler);
     maskIRQ(irq, false);
 }

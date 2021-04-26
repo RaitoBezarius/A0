@@ -1,3 +1,4 @@
+const platform = @import("platform.zig");
 const mem = @import("std").mem;
 const gdt = @import("gdt.zig");
 const interrupts = @import("interrupts.zig");
@@ -83,9 +84,6 @@ fn sidt() IDTRegister {
 pub fn initialize() void {
     serial.writeText("IDT initializing...\n");
 
-    var buf: [4096]u8 = undefined;
-    serial.printf(buf[0..], "IDT entry size: {d}\n", .{@sizeOf(IDTEntry)});
-
     interrupts.initialize();
     interrupts.register(0, divide_by_zero);
     interrupts.register(1, debug_trap);
@@ -97,16 +95,19 @@ pub fn initialize() void {
     runtimeTests();
 }
 
-fn divide_by_zero() void {
+fn divide_by_zero(ctx: *platform.Context) usize {
     serial.writeText("divide by zero!\n");
+    return @ptrToInt(ctx);
 }
 
-fn debug_trap() void {
+fn debug_trap(ctx: *platform.Context) usize {
     serial.writeText("debug fault/trap\n");
+    return @ptrToInt(ctx);
 }
 
-fn page_fault_handler() void {
+fn page_fault_handler(ctx: *platform.Context) usize {
     serial.writeText("page fault handler\n");
+    return @ptrToInt(ctx);
 }
 
 fn rt_loadedIDTProperly() void {
