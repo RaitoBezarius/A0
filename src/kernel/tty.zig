@@ -18,7 +18,7 @@ pub fn print(comptime format: []const u8, args: ...,) void {
     _ = fmt.format({}, Errors, printCallback, format, args);
 }
 
-pub fn colorPrint(fg: Color, comptime format: []const u8, args: ...) void {
+pub fn colorPrint(fg: u32, comptime format: []const u8, args: ...) void {
     const prevTextColor = graphics.getTextColor();
     graphics.setTextColor(fg);
     print(format, args);

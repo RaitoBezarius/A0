@@ -1,5 +1,6 @@
 const fmt = @import("std").fmt;
 const uefiConsole = @import("../uefi/console.zig");
+const serial = @import("../debug/serial.zig");
 const PSF_FONT_MAGIC: u32 = 0x864ab572;
 
 const Font = packed struct {
@@ -17,16 +18,11 @@ const Font = packed struct {
 };
 
 const rawFontBuffer = @embedFile("Lat2-Terminus16.psfu");
-const defaultFontBuffer = @ptrCast(*const [*]u8, rawFontBuffer);
-pub fn fromBuffer(buffer: *const [*]u8) ?*const Font {
-    const font: *align(8) const Font = @ptrCast(*align(8) const Font, buffer);
-    if (font.magic != PSF_FONT_MAGIC) {
-        return null;
-    } else {
-        return font;
-    }
+pub const defaultFont = @ptrCast([*]const u8, rawFontBuffer);
+
+pub fn asFont(buffer: [*]const u8) *const Font {
+    return @ptrCast(*const Font, buffer);
 }
-pub const defaultFont: *const Font = fromBuffer(defaultFontBuffer).?;
 
 fn hexdump(buffer: []const u8, length: u32) [512]u8 {
     var i: u64 = 0;
@@ -41,44 +37,38 @@ fn hexdump(buffer: []const u8, length: u32) [512]u8 {
     return outBuffer;
 }
 
-pub fn debugGlyph(buffer: []u8, font: *const Font, glyph_index: u32) []const u8 {
+pub fn debugGlyph(font: *const Font, glyph_index: u32) void {
     if (glyph_index < 0 or glyph_index >= font.numGlyphs) {
-        return fmt.bufPrint(buffer, "out of range glyph\r\n", .{}) catch unreachable;
+        return serial.writeText("out of range glyph\r\n");
     }
-
     const start = glyph_index * font.bytesPerGlyph;
     const glyph = font.data()[start .. start + 16];
-    return fmt.bufPrint(buffer, "bytes: {any}\r\n", .{glyph}) catch unreachable;
+    serial.printf("{} out of {}, offset {}, glyp at {*}\n", .{ glyph_index, font.numGlyphs, font.headerSize, font.data() + start });
+    for (glyph) |l| {
+        serial.printf("{b:0>8}\n", .{l});
+    }
 }
 
-pub fn renderChar(font: *const Font, dest: [*]u8, c: u8, cx: i32, cy: i32, fg: u32, bg: u32, scanLine: u32) void {
-    const bytesPerLine = (font.width + 7) / 8;
+pub fn renderChar(font: *const Font, dest: [*]u32, char: u8, cx: i32, cy: i32, fg: u32, bg: u32, scanLine: u32) void {
+    const bytesPerLine: u32 = (font.width + 7) / 8;
+    var glyph = font.data() + (if (char > 0 and char < font.numGlyphs) char else 0) * font.bytesPerGlyph;
+    var linePtr = dest + @bitCast(u32, (cy * @bitCast(i32, scanLine)) + cx);
 
-    var glyph = font.data() + (if (c > 0 and c < font.numGlyphs) c else 0) * font.bytesPerGlyph;
-
-    var offsets = (cy * @bitCast(i32, font.height) * @bitCast(i32, scanLine)) + (cx * @bitCast(i32, (font.width + 1)) * 4);
-
-    var x: u32 = 0;
     var y: u32 = 0;
-    var line: usize = undefined;
-    var mask: u32 = undefined;
-    var buf: [4096]u8 = undefined;
-
     while (y < font.height) : (y += 1) {
-        line = @as(usize, @bitCast(u32, offsets));
-
-        mask = @as(u32, 1) << @truncate(u5, (font.width - 1));
-
-        while (x < font.width) : (x += 1) {
-            var target: *u32 = @ptrCast(*u32, @alignCast(4, dest + line));
-            uefiConsole.printf(buf[0..], "target addr: {}", .{target});
-            const castedGlyph = @ptrToInt(@ptrCast(*const u32, @alignCast(4, glyph)));
-            target.* = if ((castedGlyph & mask) - 1 >= (mask - 1)) fg else bg;
-            mask >>= 1;
-            line += @sizeOf(u32);
+        var mask: u32 = @as(u32, 1) << @truncate(u5, (font.width - 1));
+        var lineByte: u32 = 0;
+        while (lineByte < bytesPerLine) : (lineByte += 1) {
+            const castedGlyph = @as(u32, glyph[0]) << @truncate(u5, (bytesPerLine - lineByte - 1));
+            var byteRowPtr = linePtr + lineByte * 8;
+            var x: u32 = 0;
+            while (x < font.width) : (x += 1) {
+                var target = byteRowPtr + x;
+                target.* = (if (castedGlyph & mask > 0) fg else bg);
+                mask >>= 1;
+            }
+            glyph += 1;
         }
-
-        glyph += bytesPerLine;
-        offsets += @bitCast(i32, scanLine);
+        linePtr += scanLine;
     }
 }

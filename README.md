@@ -7,7 +7,7 @@ A simple x64 [1] microkernel, A/0.
 ## Run the VM
 
 ```console
-$ zig -Drelease-safe build run
+$ zig build -Drelease-safe run
 ```
 
 ## QEMU Monitor Mode

@@ -7,6 +7,7 @@ const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
 
 const graphics = @import("graphics.zig");
+const Color = @import("color.zig");
 //const tty = @import("tty.zig");
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");

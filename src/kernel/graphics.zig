@@ -3,24 +3,33 @@ const uefi = @import("std").os.uefi;
 const platform = @import("arch/x86/platform.zig");
 const fmt = @import("std").fmt;
 const psf2 = @import("fonts/psf2.zig");
-const ColorMod = @import("color.zig");
-const Color = ColorMod.Color;
+const Color = @import("color.zig");
 const uefiConsole = @import("uefi/console.zig");
 
 var graphicsOutputProtocol: ?*uefi.protocols.GraphicsOutputProtocol = undefined;
 
-const Pixel = packed struct {
+pub const Pixel = packed struct {
     blue: u8,
     green: u8,
     red: u8,
     pad: u8 = undefined,
 };
 
-fn pixelFromColor(c: Color) Pixel {
+pub const Dimensions = packed struct {
+    height: u32,
+    width: u32,
+};
+
+pub const TextColor = packed struct {
+    fg: u32,
+    bg: u32,
+};
+
+fn pixelFromColor(c: u32) Pixel {
     return Pixel{
-        .blue = ColorMod.B(c),
-        .green = ColorMod.G(c),
-        .red = ColorMod.R(c),
+        .blue = Color.B(c),
+        .green = Color.G(c),
+        .red = Color.R(c),
     };
 }
 
@@ -36,13 +45,22 @@ var fb: Framebuffer = Framebuffer{
 
 const CursorState = struct { x: i32, y: i32 };
 
-const ScreenState = struct { cursor: CursorState };
+const ScreenState = struct {
+    cursor: CursorState,
+    textColor: TextColor,
+    font: [*]const u8,
+};
 
 var state = ScreenState{
     .cursor = CursorState{
         .x = 0,
         .y = 0,
     },
+    .textColor = TextColor{
+        .fg = 0xffffff,
+        .bg = 0,
+    },
+    .font = psf2.defaultFont,
 };
 
 fn setupMode(index: u32) void {
@@ -60,8 +78,8 @@ fn setupMode(index: u32) void {
     state.cursor.y = @divTrunc(@bitCast(i32, fb.height), 2);
 }
 
-const MOST_APPROPRIATE_W = 1920;
-const MOST_APPROPRIATE_H = 1440;
+const MOST_APPROPRIATE_W = 960;
+const MOST_APPROPRIATE_H = 720;
 fn selectBestMode() void {
     var bestMode = .{ graphicsOutputProtocol.?.mode.mode, graphicsOutputProtocol.?.mode.info };
     var i: u8 = 0;
@@ -91,11 +109,6 @@ fn selectBestMode() void {
     }
 
     setupMode(bestMode.@"0");
-}
-
-pub fn setPixel(w: u32, h: u32, rgb: u32) void {
-    if (!fb.valid) @panic("Invalid framebuffer!");
-    fb.basePtr[4 * (w + h * fb.pixelsPerScanLine)] = pixelFromColor(@intToEnum(Color, rgb | 0xff000000));
 }
 
 pub fn initialize() void {
@@ -136,56 +149,86 @@ pub fn initialize() void {
     }
 }
 
-pub fn clear(color: Color) void {
-    drawRect(fb.width, fb.height, color);
-    // TODO: Reset cursor.
+pub fn clear(color: u32) void {
+    drawRect(0, 0, fb.width, fb.height, color);
+
+    // Put the cursor at the center.
+    state.cursor.x = @divTrunc(@bitCast(i32, fb.width), 2);
+    state.cursor.y = @divTrunc(@bitCast(i32, fb.height), 2);
 }
-pub fn setTextColor(color: Color) void {
-    // Store current text color
+pub fn setTextColor(fg: u32, bg: u32) void {
+    state.textColor = TextColor{ .fg = fg, .bg = bg };
 }
-pub fn getTextColor() Color {
-    // Return current text color
+pub fn getTextColor() TextColor {
+    return state.textColor;
+}
+pub fn getDimensions() Dimensions {
+    return Dimensions{
+        .height = fb.height,
+        .width = fb.width,
+    };
 }
 
-pub fn drawRect(w: u32, h: u32, c: Color) void {
+pub fn setPixel(x: u32, y: u32, rgb: u32) void {
+    if (!fb.valid) @panic("Invalid framebuffer!");
+    fb.basePtr[(x + y * fb.pixelsPerScanLine)] = pixelFromColor(rgb);
+}
+
+pub fn drawRect(x: u32, y: u32, w: u32, h: u32, rgb: u32) void {
     if (!fb.valid) @panic("Invalid framebuffer!\n");
-    var i: u32 = 0;
-    var where: [*]u8 = @ptrCast([*]u8, fb.basePtr);
+    const pixelColor = pixelFromColor(rgb);
+    const lastLine = y + h;
+    const lastCol = x + w;
+    var linePtr = fb.basePtr + (fb.pixelsPerScanLine * y);
+    var iLine = y;
 
-    while (i < w) : (i += 1) {
-        var j: u32 = 0;
-        while (j <= h) : (j += 1) {
-            where[4 * j] = ColorMod.R(c);
-            where[4 * j + 1] = ColorMod.G(c);
-            where[4 * j + 2] = ColorMod.B(c);
+    while (iLine < lastLine) : (iLine += 1) {
+        var iCol: u32 = x;
+        while (iCol < lastCol) : (iCol += 1) {
+            linePtr[iCol] = pixelColor;
         }
-        where += 3200;
+        linePtr += fb.pixelsPerScanLine;
     }
 }
 
-pub fn drawChar(c: u8, fg: Color, bg: Color) void {
+pub fn drawChar(char: u8, fg: u32, bg: u32) void {
     if (!fb.valid) @panic("Invalid framebuffer!");
     // Draw a character at the current cursor.
-    var buf: [4096]u8 = undefined;
-    uefiConsole.printf(buf[0..], "write {} @ cursor: {}\r\n", .{ c, state.cursor });
-    uefiConsole.puts(psf2.debugGlyph(buf[0..], psf2.defaultFont, @as(u32, c)));
-    psf2.renderChar(psf2.defaultFont, @ptrCast([*]u8, fb.basePtr), c, state.cursor.x, state.cursor.y, @enumToInt(fg), @enumToInt(bg), fb.pixelsPerScanLine);
 
-    state.cursor.x += 1;
-    if (state.cursor.x >= fb.width) {
-        state.cursor.y += 1;
+    var font = psf2.asFont(state.font);
+    psf2.renderChar(font, @ptrCast([*]u32, @alignCast(32, fb.basePtr)), char, state.cursor.x, state.cursor.y, fg, bg, fb.pixelsPerScanLine);
+
+    state.cursor.x += @bitCast(i32, font.width);
+    if (state.cursor.x >= fb.width - font.width) {
+        state.cursor.y += @bitCast(i32, font.height);
         state.cursor.x = 0;
     }
 }
 pub fn drawText(text: []const u8) void {
     // Iterate over all char and draw each char.
+    for (text) |char| {
+        drawChar(char, state.textColor.fg, state.textColor.bg);
+    }
 }
 pub fn alignLeft(offset: usize) void {
     // Move cursor left of offset chars.
+    state.cursor.x -= @bitCast(i32, offset * state.font.width);
+}
+pub fn moveCursor(vOffset: i32, hOffset: i32) void {
+    // Move cursor left, right, bottom, top
+    state.cursor.x += vOffset * @bitCast(i32, state.font.width);
+    state.cursor.y += hOffset * @bitCast(i32, state.font.height);
 }
 
 pub fn selfTest() void {
     clear(Color.Black);
-    drawChar('a', Color.White, Color.Black);
+    graphics.clear(Color.Green);
+    graphics.drawRect(10, 30, 780, 540, Color.Red);
+    graphics.setPixel(0, 0, Color.Red);
+    graphics.setPixel(0, 1, Color.Blue);
+    graphics.setPixel(1, 0, Color.Cyan);
+    graphics.setPixel(1, 1, Color.Magenta);
+    graphics.setTextColor(Color.Red, Color.Blue);
+    graphics.drawText("Hello there!");
     //clear(Color.White);
 }
