@@ -3,6 +3,12 @@ const platform = @import("arch/x86/platform.zig");
 const graphics = @import("graphics.zig");
 const Color = @import("color.zig");
 
+const ttyState = packed struct {
+    screen: graphics.Dimensions,
+    fontSize: graphics.Dimensions,
+    nbRows: u32,
+    nbCols: u32,
+};
 
 pub fn initialize() void {
     graphics.clear(Color.Black);

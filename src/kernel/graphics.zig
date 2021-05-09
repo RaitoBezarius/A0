@@ -20,6 +20,11 @@ pub const Dimensions = packed struct {
     width: u32,
 };
 
+pub const Position = packed struct {
+    x: i32,
+    y: i32,
+};
+
 pub const TextColor = packed struct {
     fg: u32,
     bg: u32,
@@ -43,16 +48,14 @@ var fb: Framebuffer = Framebuffer{
     .valid = false,
 };
 
-const CursorState = struct { x: i32, y: i32 };
-
 const ScreenState = struct {
-    cursor: CursorState,
+    cursor: Position,
     textColor: TextColor,
     font: [*]const u8,
 };
 
 var state = ScreenState{
-    .cursor = CursorState{
+    .cursor = Position{
         .x = 0,
         .y = 0,
     },
@@ -212,23 +215,26 @@ pub fn drawText(text: []const u8) void {
 }
 pub fn alignLeft(offset: usize) void {
     // Move cursor left of offset chars.
-    state.cursor.x -= @bitCast(i32, offset * state.font.width);
+    state.cursor.x = @bitCast(i32, offset * state.font.width);
 }
 pub fn moveCursor(vOffset: i32, hOffset: i32) void {
     // Move cursor left, right, bottom, top
     state.cursor.x += vOffset * @bitCast(i32, state.font.width);
     state.cursor.y += hOffset * @bitCast(i32, state.font.height);
 }
+pub fn setCursorCoords(x: i32, y: i32) void {
+    state.cursor.x = x;
+    state.cursor.y = y;
+}
+pub fn getCursorPos() Position {
+    return state.cursor;
+}
 
 pub fn selfTest() void {
     clear(Color.Black);
-    graphics.clear(Color.Green);
-    graphics.drawRect(10, 30, 780, 540, Color.Red);
-    graphics.setPixel(0, 0, Color.Red);
-    graphics.setPixel(0, 1, Color.Blue);
-    graphics.setPixel(1, 0, Color.Cyan);
-    graphics.setPixel(1, 1, Color.Magenta);
-    graphics.setTextColor(Color.Red, Color.Blue);
-    graphics.drawText("Hello there!");
-    //clear(Color.White);
+    clear(Color.Green);
+    drawRect(10, 30, 780, 540, Color.Red);
+    setPixel(0, 0, Color.Cyan);
+    setTextColor(Color.Red, Color.Blue);
+    drawText("Hello there!");
 }

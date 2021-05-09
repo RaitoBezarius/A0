@@ -48,6 +48,9 @@ pub fn main() void {
     scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
         serial.ppanic("Failed to initialize scheduler: {}", .{err});
     };
+    // scheduler.self_test_init(uefiAllocator.systemAllocator) catch |err| {
+    //     serial.ppanic("Failed to initialize scheduler tests: {}", .{err});
+    // };
 
     serial.writeText("Platform preinitialization...\n");
     platform.preinitialize(uefiAllocator.systemAllocator);
@@ -65,8 +68,11 @@ pub fn main() void {
     platform.initialize();
     serial.writeText("Platform initialized.\n");
 
-    // graphics.selfTest();
-    //serial.writeText("Graphics subsystem self test completed.\n");
+    // scheduler.selfTest();
+
+    // TODO: graphics tests work well only when scheduler is disabled, or at low frequency. Seems a graphic buffer issue (?)
+    graphics.selfTest();
+    serial.writeText("Graphics subsystem self test completed.\n");
 
     // runtimeServices.set_virtual_address_map();
 
@@ -79,5 +85,62 @@ pub fn main() void {
     // The OS is now running.
     //var user_stack: [1024]u64 = undefined;
     //platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
-    platform.hlt();
+    // platform.hlt();
+
+    while (true) {
+        serial.writeText("--- HTL KERNEL ---\n");
+        asm volatile ("hlt");
+    }
+}
+
+// This code solves the queens problem. Used to test if the code execution is correct
+
+const N_QUEENS: i64 = 9;
+var echiquier: [N_QUEENS][N_QUEENS]bool = undefined;
+
+fn cellOk(x: usize, y: usize) bool {
+    var i: usize = 0;
+    while (i < N_QUEENS) : (i += 1) {
+        var j: usize = 0;
+        while (j < N_QUEENS) : (j += 1) {
+            if (echiquier[i][j]) {
+                if (i == x or j == y or x + j == y + i or x + y == i + j) {
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+fn solve(n: i64, i_deb: usize, j_deb: usize) i64 {
+    if (n == N_QUEENS) {
+        return 1;
+    }
+    var r: i64 = 0;
+    var i: usize = i_deb;
+    var j: usize = j_deb;
+    while (i < N_QUEENS) : (i += 1) {
+        while (j < N_QUEENS) : (j += 1) {
+            if (cellOk(i, j)) {
+                echiquier[i][j] = true;
+                r += solve(n + 1, i, j);
+                echiquier[i][j] = false;
+            }
+        }
+        j = 0;
+    }
+    return r;
+}
+
+fn doSomeTest() void {
+    var i: usize = 0;
+    while (i < N_QUEENS) : (i += 1) {
+        var j: usize = 0;
+        while (j < N_QUEENS) : (j += 1) {
+            echiquier[i][j] = false;
+        }
+    }
+    serial.printf("Solutions: {}\n\n\n\n\n\n\n\n\n\n\n\n\n\n", .{solve(0, 0, 0)});
+    serial.writeText("========== END");
 }

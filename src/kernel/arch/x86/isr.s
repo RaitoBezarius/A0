@@ -15,6 +15,7 @@
 // Common code for all Interrupt Service Routines.
 isrCommon:
     push %rbp
+    push %rax
     push %rdi
     push %rsi
     push %rdx
@@ -38,6 +39,7 @@ isrCommon:
     pop %rdx
     pop %rsi
     pop %rdi
+    pop %rax
     pop %rbp
     add $16, %rsp  // Remove interrupt number and error code from stack.
     iretq

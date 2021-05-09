@@ -12,14 +12,27 @@ var all_pids: PidBitmap = brk: {
     break :brk pids;
 };
 
+var taskByPid: [PidBitmap.NUM_ENTRIES]?*Task = undefined;
+
+pub const TaskState = enum(u8) {
+    Runnable,
+    Stopped,
+    Sleep,
+    SleepNoInterrupt,
+    Zombie,
+};
+
 pub const Task = struct {
     pid: PidBitmap.IndexType,
     kernel_stack: []usize, // Pointer to the kernel stack, allocated @ init
     user_stack: []usize, // Pointer to the user stack, allocated @ init, empty if it's a ktask
     stack_pointer: usize, // Current sp to task
     kernel: bool, // Is it a kernel task?
+    scheduled: bool,
+    priority: u8,
+    state: TaskState,
 
-    pub fn create(entrypoint: Entrypoint, kernel: bool, allocator: *Allocator) Allocator.Error!*Task {
+    pub fn create(entrypoint: Entrypoint, kernel: bool, allocator: *Allocator, priority: u8) Allocator.Error!*Task {
         var task = try allocator.create(Task);
         errdefer allocator.destroy(task);
 
@@ -38,14 +51,18 @@ pub const Task = struct {
             .user_stack = ustack,
             .kernel = kernel,
             .stack_pointer = @ptrToInt(&kstack[STACK_SIZE - 1]),
+            .priority = priority,
+            .state = TaskState.Runnable,
+            .scheduled = false,
         };
-
         try platform.initializeTask(task, entrypoint, allocator);
+        taskByPid[pid] = task;
 
         return task;
     }
 
     pub fn destroy(self: *Task, allocator: *Allocator) void {
+        taskByPid[self.pid] = null;
         freePid(self.pid);
 
         if (@ptrToInt(self.kernel_stack.ptr) != @frameAddress()) {
@@ -70,4 +87,8 @@ fn freePid(pid: PidBitmap.IndexType) void {
     }
 
     all_pids.clearEntry(pid);
+}
+
+pub fn getTask(pid: PidBitmap.IndexType) ?*Task {
+    return taskByPid[pid];
 }

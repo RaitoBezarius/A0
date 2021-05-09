@@ -77,20 +77,20 @@ fn pitHandler(ctx: *platform.Context) usize {
 }
 
 fn computeReloadValue(freq: u32) u32 {
-    var reload_value: u32 = 0x10000; // 19Hz.
+    var reloadValue: u32 = 0x10000; // 19Hz.
     if (freq > 18) {
         if (freq < MAX_FREQUENCY) {
-            reload_value = (MAX_FREQUENCY + (freq / 2)) / freq;
+            reloadValue = (MAX_FREQUENCY + (freq / 2)) / freq;
         } else {
-            reload_value = 1;
+            reloadValue = 1;
         }
     }
 
-    return reload_value;
+    return reloadValue;
 }
 
-fn computeAdjustedFrequency(reload_value: u32) u32 {
-    return (MAX_FREQUENCY + (reload_value / 2)) / reload_value;
+fn computeAdjustedFrequency(reloadValue: u32) u32 {
+    return (MAX_FREQUENCY + (reloadValue / 2)) / reloadValue;
 }
 
 fn setupCounter(cs: CounterSelect, freq: u32, mode: u8) PitError!void {
@@ -98,8 +98,8 @@ fn setupCounter(cs: CounterSelect, freq: u32, mode: u8) PitError!void {
         return PitError.InvalidFrequency;
     }
 
-    const reload_value = computeReloadValue(freq);
-    const frequency = computeAdjustedFrequency(reload_value);
+    const reloadValue = computeReloadValue(freq);
+    const frequency = computeAdjustedFrequency(reloadValue);
 
     time_ns = 1000000000 / frequency;
     time_under_1_ns = ((1000000000 % frequency) * 1000 + (frequency / 2)) / frequency;
@@ -110,7 +110,7 @@ fn setupCounter(cs: CounterSelect, freq: u32, mode: u8) PitError!void {
         .Counter2 => cur_freq_2 = frequency,
     }
 
-    const reload_val_trunc = @truncate(u16, reload_value);
+    const reload_val_trunc = @truncate(u16, reloadValue);
 
     sendCommand(mode | OCW_READ_LOAD_DATA | cs.getCounterOCW());
     sendDataToCounter(cs, @truncate(u8, reload_val_trunc));
@@ -121,6 +121,8 @@ fn setupCounter(cs: CounterSelect, freq: u32, mode: u8) PitError!void {
         .Counter1 => unused_ticks = 0,
         .Counter2 => speaker_ticks = 0,
     }
+
+    serial.printf("Frequency set at: {d}Hz, reload value: {d}Hz, real frequency: {d}Hz\n", .{ freq, reloadValue, frequency });
 }
 
 pub fn getTicks() u64 {
@@ -132,25 +134,15 @@ pub fn getFrequency() u32 {
 }
 
 pub fn initialize() void {
-    var buf: [4096]u8 = undefined;
     serial.writeText("PIT initialization\n");
     defer serial.writeText("PIT initialized.\n");
 
-    const freq: u32 = 10000;
+    // const freq: u32 = 10000;
+    const freq = 19; // TODO(w): choose the best frequency
 
-    //setupCounter(CounterSelect.Counter0, freq, OCW_MODE_SQUARE_WAVE_GENERATOR | OCW_BINARY_COUNT_BINARY) catch |e| {
-    //    serial.ppanic("Invalid frequency: {d}\n", .{freq});
-    //};
-    //
-
-    const divisor = MAX_FREQUENCY / freq;
-    platform.out(0x43, @as(u8, 0x36));
-    platform.out(0x40, @truncate(u8, divisor));
-    platform.out(0x40, @truncate(u8, divisor >> 8));
-    const reloadValue = computeReloadValue(freq);
-    const adjustedFreq = computeAdjustedFrequency(reloadValue);
-
-    // serial.printf(buf[0..], "Frequency set at: {d}Hz, reload value: {d}Hz, real frequency: {d}Hz\n", .{ freq, reloadValue, adjustedFreq });
+    setupCounter(CounterSelect.Counter0, freq, OCW_MODE_SQUARE_WAVE_GENERATOR | OCW_BINARY_COUNT_BINARY) catch |e| {
+        serial.ppanic("Invalid frequency: {d}\n", .{freq});
+    };
 
     irq.registerIRQ(IRQ_PIT, pitHandler);
 
