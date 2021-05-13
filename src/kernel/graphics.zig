@@ -159,8 +159,13 @@ pub fn clear(color: u32) void {
     state.cursor.x = @divTrunc(@bitCast(i32, fb.width), 2);
     state.cursor.y = @divTrunc(@bitCast(i32, fb.height), 2);
 }
-pub fn setTextColor(fg: u32, bg: u32) void {
-    state.textColor = TextColor{ .fg = fg, .bg = bg };
+pub fn setTextColor(fg: ?u32, bg: ?u32) void {
+    if (fg) |fgColor| {
+        state.textColor.fg = fgColor;
+    }
+    if (bg) |bgColor| {
+        state.textColor.bg = bgColor;
+    }
 }
 pub fn getTextColor() TextColor {
     return state.textColor;
@@ -219,8 +224,8 @@ pub fn alignLeft(offset: usize) void {
 }
 pub fn moveCursor(vOffset: i32, hOffset: i32) void {
     // Move cursor left, right, bottom, top
-    state.cursor.x += vOffset * @bitCast(i32, state.font.width);
-    state.cursor.y += hOffset * @bitCast(i32, state.font.height);
+    state.cursor.x += hOffset * @bitCast(i32, state.font.width);
+    state.cursor.y += vOffset * @bitCast(i32, state.font.height);
 }
 pub fn setCursorCoords(x: i32, y: i32) void {
     state.cursor.x = x;
@@ -228,6 +233,33 @@ pub fn setCursorCoords(x: i32, y: i32) void {
 }
 pub fn getCursorPos() Position {
     return state.cursor;
+}
+
+pub fn scroll(px: u32) void {
+    if (!fb.valid) @panic("Invalid framebuffer!\n");
+    var lineSize = fb.pixelsPerScanLine;
+    var prevLinePtr = fb.basePtr;
+    var linePtr = fb.basePtr + px * lineSize;
+    var iLine: u32 = px;
+
+    while (iLine < fb.height) : (iLine += 1) {
+        var iCol: u32 = 0;
+        while (iCol < lineSize) : (iCol += 1) {
+            prevLinePtr[iCol] = linePtr[iCol];
+        }
+        linePtr += lineSize;
+        prevLinePtr += lineSize;
+    }
+    // And fill remaining lines
+    iLine = fb.height - px;
+    var pixelColor = pixelFromColor(state.textColor.bg);
+    while (iLine < fb.height) : (iLine += 1) {
+        var iCol: u32 = 0;
+        while (iCol < lineSize) : (iCol += 1) {
+            prevLinePtr[iCol] = pixelColor;
+        }
+        prevLinePtr += lineSize;
+    }
 }
 
 pub fn selfTest() void {

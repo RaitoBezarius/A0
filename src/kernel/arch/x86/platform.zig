@@ -99,7 +99,6 @@ pub fn liftoff(userspace_fun_ptr: *const fn () void, userspace_stack: *u64) void
 
 pub fn hlt() noreturn {
     while (true) {
-        serial.writeText("--- HTL ---\n");
         asm volatile ("hlt");
     }
 }

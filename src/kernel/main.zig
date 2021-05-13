@@ -8,7 +8,7 @@ const uefiSystemInfo = @import("uefi/systeminfo.zig");
 
 const graphics = @import("graphics.zig");
 const Color = @import("color.zig");
-//const tty = @import("tty.zig");
+const tty = @import("tty.zig");
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");
 const serial = @import("debug/serial.zig");
@@ -51,10 +51,11 @@ pub fn main() void {
     // scheduler.self_test_init(uefiAllocator.systemAllocator) catch |err| {
     //     serial.ppanic("Failed to initialize scheduler tests: {}", .{err});
     // };
+    tty.initialize(uefiAllocator.systemAllocator);
 
-    serial.writeText("Platform preinitialization...\n");
+    tty.serialPrint("Platform preinitialization...\n", .{});
     platform.preinitialize(uefiAllocator.systemAllocator);
-    serial.writeText("Platform preinitialized, can now exit boot services.\n");
+    tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
     uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
     var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
@@ -62,17 +63,17 @@ pub fn main() void {
         return;
     }
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
-    serial.writeText("Boot services exitted. UEFI console is now unavailable.\n");
+    tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
 
-    serial.writeText("Platform initialization...\n");
+    tty.serialPrint("Platform initialization...\n", .{});
     platform.initialize();
-    serial.writeText("Platform initialized.\n");
-
+    tty.serialPrint("Platform initialized.\n", .{});
     // scheduler.selfTest();
 
-    // TODO: graphics tests work well only when scheduler is disabled, or at low frequency. Seems a graphic buffer issue (?)
-    graphics.selfTest();
-    serial.writeText("Graphics subsystem self test completed.\n");
+    // TODO: graphics tests work well only when scheduler is disabled, or at low frequency. Seems a graphic buffer issue (?). Currently, freq = 19.
+    // graphics.selfTest();
+    // tty.serialPrint("Graphics subsystem self test completed.\n", .{});
+    // tty.selfTest();
 
     // runtimeServices.set_virtual_address_map();
 
@@ -85,12 +86,7 @@ pub fn main() void {
     // The OS is now running.
     //var user_stack: [1024]u64 = undefined;
     //platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
-    // platform.hlt();
-
-    while (true) {
-        serial.writeText("--- HTL KERNEL ---\n");
-        asm volatile ("hlt");
-    }
+    platform.hlt();
 }
 
 // This code solves the queens problem. Used to test if the code execution is correct
@@ -141,6 +137,6 @@ fn doSomeTest() void {
             echiquier[i][j] = false;
         }
     }
-    serial.printf("Solutions: {}\n\n\n\n\n\n\n\n\n\n\n\n\n\n", .{solve(0, 0, 0)});
-    serial.writeText("========== END");
+    tty.serialPrint("Solutions: {}\n\n\n\n\n\n\n\n\n\n\n\n\n\n", .{solve(0, 0, 0)});
+    tty.serialPrint("========== END", .{});
 }
