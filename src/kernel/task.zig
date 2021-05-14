@@ -12,7 +12,7 @@ var all_pids: PidBitmap = brk: {
     break :brk pids;
 };
 
-var taskByPid: [PidBitmap.NUM_ENTRIES]?*Task = undefined;
+// var taskByPid: [PidBitmap.NUM_ENTRIES]?*Task = undefined;
 
 pub const TaskState = enum(u8) {
     Runnable,
@@ -31,6 +31,7 @@ pub const Task = struct {
     scheduled: bool,
     priority: u8,
     state: TaskState,
+    timeout: u64,
 
     pub fn create(entrypoint: Entrypoint, kernel: bool, allocator: *Allocator, priority: u8) Allocator.Error!*Task {
         var task = try allocator.create(Task);
@@ -54,15 +55,16 @@ pub const Task = struct {
             .priority = priority,
             .state = TaskState.Runnable,
             .scheduled = false,
+            .timeout = 0, // In nano seconds
         };
         try platform.initializeTask(task, entrypoint, allocator);
-        taskByPid[pid] = task;
+        // taskByPid[pid] = task;
 
         return task;
     }
 
     pub fn destroy(self: *Task, allocator: *Allocator) void {
-        taskByPid[self.pid] = null;
+        // taskByPid[self.pid] = null;
         freePid(self.pid);
 
         if (@ptrToInt(self.kernel_stack.ptr) != @frameAddress()) {
@@ -89,6 +91,6 @@ fn freePid(pid: PidBitmap.IndexType) void {
     all_pids.clearEntry(pid);
 }
 
-pub fn getTask(pid: PidBitmap.IndexType) ?*Task {
-    return taskByPid[pid];
-}
+// pub fn getTask(pid: PidBitmap.IndexType) ?*Task {
+//     return taskByPid[pid];
+// }

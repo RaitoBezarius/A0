@@ -265,3 +265,7 @@ pub fn in(comptime Type: type, port: u16) Type {
         else => @compileError("Invalid port type for in. Only u8, u16 or u32, found: " ++ @typeName(@TypeOf(port))),
     };
 }
+
+pub fn getClockInterval() u64 {
+    return pit.time_ns;
+}

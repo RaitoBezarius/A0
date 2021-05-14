@@ -68,6 +68,7 @@ pub fn main() void {
     tty.serialPrint("Platform initialization...\n", .{});
     platform.initialize();
     tty.serialPrint("Platform initialized.\n", .{});
+
     // scheduler.selfTest();
 
     // TODO: graphics tests work well only when scheduler is disabled, or at low frequency. Seems a graphic buffer issue (?). Currently, freq = 19.

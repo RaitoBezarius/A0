@@ -54,8 +54,8 @@ var cur_freq_0: u32 = undefined;
 var cur_freq_1: u32 = undefined;
 var cur_freq_2: u32 = undefined;
 
-var time_ns: u32 = undefined;
-var time_under_1_ns: u32 = undefined;
+pub var time_ns: u32 = undefined;
+pub var time_under_1_ns: u32 = undefined;
 
 fn sendCommand(cmd: u8) void {
     platform.out(COMMAND_REGISTER, cmd);
