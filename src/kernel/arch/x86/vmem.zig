@@ -294,10 +294,11 @@ pub fn map(linear: LinearAddress, physical: u64) void {
         panic("Tried to map an already mapped address.", null);
     }
 
-    pt[linear.pt] = PageTableEntry.new(physical, true, false);
-    pd[linear.pd] = PageTableEntry.new(@ptrToInt(pt), true, false);
-    pdpt[linear.pdpt] = PageTableEntry.new(@ptrToInt(pd), true, false);
-    pml4[linear.pml4] = PageTableEntry.new(@ptrToInt(pdpt), true, false);
+    // TODO : Allow to configure user accessibility
+    pt[linear.pt] = PageTableEntry.new(physical, true, true);
+    pd[linear.pd] = PageTableEntry.new(@ptrToInt(pt), true, true);
+    pdpt[linear.pdpt] = PageTableEntry.new(@ptrToInt(pd), true, true);
+    pml4[linear.pml4] = PageTableEntry.new(@ptrToInt(pdpt), true, true);
 
     // Don't forget to invalidate !
     platform.invlpg(linear.as_u64());
@@ -318,6 +319,63 @@ pub fn map2MB(linear: LinearAddress, physical: u64) void {
 
     // Don't forget to invalidate !
     platform.invlpg(linear.as_u64());
+}
+
+fn nuclear_option() void {
+    // As Ryan requested
+    const pml4 = @intToPtr(*[512]PageTableEntry, platform.readCR("3") & ~@as(u64, 0xFFF));
+
+    for (pml4) |*pml4_entry| {
+        if (!pml4_entry.present) {
+            continue;
+        }
+
+        pml4_entry.RW = true;
+        pml4_entry.US = true;
+
+        const pdpt: *[512]PageTableEntry = acquireSubtable(pml4_entry);
+
+        for (pdpt) |*pdpt_entry| {
+            if (!pdpt_entry.present) {
+                continue;
+            }
+
+            pdpt_entry.RW = true;
+            pdpt_entry.US = true;
+
+            if (pdpt_entry.isHugepage()) {
+                continue;
+            }
+
+            const pd: *[512]PageTableEntry = acquireSubtable(pdpt_entry);
+
+            for (pd) |*pd_entry| {
+                if (!pd_entry.present) {
+                    continue;
+                }
+
+                pd_entry.RW = true;
+                pd_entry.US = true;
+
+                if (pd_entry.isHugepage()) {
+                    continue;
+                }
+
+                const pt: *[512]PageTableEntry = acquireSubtable(pd_entry);
+
+                for (pt) |*pt_entry| {
+                    if (!pt_entry.present) {
+                        continue;
+                    }
+
+                    pt_entry.RW = true;
+                    pd_entry.US = true;
+                }
+            }
+        }
+    }
+
+    platform.writeCR("3", platform.readCR("3"));
 }
 
 pub fn initialize() void {
@@ -356,6 +414,9 @@ pub fn initialize() void {
 
     // Rewrite CR3
     platform.writeCR("3", (platform.readCR("3") & 0xFFF) | @ptrToInt(pml4));
+
+    // Temporarily mark all pages as user-readable
+    nuclear_option();
 
     serial.writeText("We now have control over the virtual memory !\n");
 }
