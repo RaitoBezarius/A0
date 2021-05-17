@@ -8,6 +8,7 @@ const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
 const Task = @import("../../task.zig").Task;
 const Allocator = std.mem.Allocator;
+const KernelAllocator = @import("KernelAllocator.zig");
 
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
@@ -46,7 +47,8 @@ pub fn preinitialize(allocator: *std.mem.Allocator) void {
 }
 
 // Takes the base address of a segment that should contain at least REQUIRED_PAGES_COUNT pages
-pub fn initialize(freeSegAddr : u64, freeSegLen : u64) void {
+// Returns the kernel allocator
+pub fn initialize(freeSegAddr : u64, freeSegLen : u64) Allocator {
     if (freeSegLen < layout.REQUIRED_PAGES_COUNT) {
         serial.panic("Not enough memory !", null);
     }
@@ -57,6 +59,8 @@ pub fn initialize(freeSegAddr : u64, freeSegLen : u64) void {
     sti();
     // TODO: timer.initialize();
     // rtc.initialize();
+    KernelAllocator.initialize(vmem.LinearAddress.four_level_addr(256, 0, 1, 0, 0));
+    return KernelAllocator.kernelAllocator;
 }
 
 pub fn initializeTask(task: *Task, entrypoint: usize, allocator: *Allocator) Allocator.Error!void {
@@ -195,6 +199,14 @@ pub fn writeMSR(msr: u32, value: u64) void {
         :
         : [msr] "{rcx}" (msr),
           [value] "{rax}" (value)
+    );
+}
+
+pub fn invlpg(v_addr: usize) void {
+    asm volatile ("invlpg (%[v_addr])"
+        :
+        : [v_addr] "r" (v_addr)
+        : "memory"
     );
 }
 

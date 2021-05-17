@@ -145,7 +145,7 @@ pub fn main() void {
     tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
 
     tty.serialPrint("Platform initialization...\n", .{});
-    platform.initialize(longestSegment.start, longestSegment.pagesLen);
+    const kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
     tty.serialPrint("Platform initialized.\n", .{});
 
     // scheduler.selfTest();
