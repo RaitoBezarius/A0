@@ -1,5 +1,6 @@
 const irq = @import("interrupts.zig");
 const platform = @import("platform.zig");
+const tty = @import("../../tty.zig");
 const serial = @import("../../debug/serial.zig");
 const scheduler = @import("../../scheduler.zig");
 
@@ -134,8 +135,8 @@ pub fn getFrequency() u32 {
 }
 
 pub fn initialize() void {
-    serial.writeText("PIT initialization\n");
-    defer serial.writeText("PIT initialized.\n");
+    tty.step("PIT initialization", .{});
+    defer tty.stepOK();
 
     // const freq: u32 = 10000;
     const freq = 10000; // TODO(w): choose the best frequency

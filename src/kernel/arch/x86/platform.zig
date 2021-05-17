@@ -6,6 +6,7 @@ const pmem = @import("pmem.zig");
 const vmem = @import("vmem.zig");
 const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
+const tty = @import("../../tty.zig");
 const Task = @import("../../task.zig").Task;
 const Allocator = std.mem.Allocator;
 const KernelAllocator = @import("KernelAllocator.zig");
@@ -46,7 +47,6 @@ pub fn preinitialize() void {
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
-// Takes the base address of a segment that should contain at least REQUIRED_PAGES_COUNT pages
 // Returns the kernel allocator
 pub fn initialize(freeSegAddr: u64, freeSegLen: u64) *Allocator {
     if (freeSegLen < layout.REQUIRED_PAGES_COUNT) {
@@ -222,13 +222,13 @@ pub fn isLongModeEnabled() bool {
 
 pub const STAR_MSR = 0xC0000081;
 pub fn enableSystemCallExtensions() void {
-    serial.writeText("System call extensions will be enabled...\n");
+    tty.step("Activating the system call extensions", .{});
+    defer tty.stepOK();
     var buf: [4096]u8 = undefined;
     var eferMSR = readMSR(EFER_MSR);
     writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.
     var starMSR = readMSR(STAR_MSR);
     writeMSR(STAR_MSR, 0x00180008); // GDT segment.
-    serial.writeText("System call extensions enabled.\n");
 }
 
 pub fn rdtsc() u64 {

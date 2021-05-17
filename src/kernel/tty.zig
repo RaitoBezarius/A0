@@ -163,7 +163,7 @@ pub fn step(comptime format: []const u8, args: anytype) void {
 }
 
 pub fn stepOK() void {
-    const ok = " [ OK ]";
+    const ok = " [ OK ]\n";
 
     alignRight(ok.len);
     colorPrint(Color.LightGreen, null, ok, .{});
