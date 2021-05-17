@@ -83,7 +83,7 @@ pub const PageTableEntry = packed struct {
         };
     }
 
-    pub fn new_huge(phy_addr: u64, allow_writes: bool, allow_user: bool) PageTableEntry {
+    pub fn newHuge(phy_addr: u64, allow_writes: bool, allow_user: bool) PageTableEntry {
         return PageTableEntry {
             .present = true,
             .RW = allow_writes,
@@ -100,7 +100,7 @@ pub const PageTableEntry = packed struct {
         };
     }
 
-    pub fn is_hugepage(self: PageTableEntry) bool {
+    pub fn isHugepage(self: PageTableEntry) bool {
         return self.merged & 0b1 != 0;
     }
 
@@ -175,7 +175,7 @@ pub fn findPhysicalAddress(linear: LinearAddress) ?u64 {
 
     if (!pdpt[linear.pdpt].present) { return null; }
 
-    if (pdpt[linear.pdpt].is_hugepage()) {
+    if (pdpt[linear.pdpt].isHugepage()) {
 
         const phy_addr = pdpt[linear.pdpt].get_1GB_phy_addr() + (@intCast(u64, linear.pd) << 12) +
             (@intCast(u64, linear.pt) << 12) + @intCast(u64, linear.offset);
@@ -186,7 +186,7 @@ pub fn findPhysicalAddress(linear: LinearAddress) ?u64 {
 
         if (!pd[linear.pd].present) { return null; }
 
-        if (pd[linear.pd].is_hugepage()) {
+        if (pd[linear.pd].isHugepage()) {
 
             const phy_addr = pd[linear.pd].get_2MB_phy_addr() + (@intCast(u64, linear.pt) << 12) + @intCast(u64, linear.offset);
             return phy_addr;
@@ -201,15 +201,15 @@ pub fn findPhysicalAddress(linear: LinearAddress) ?u64 {
     }
 }
 
-fn acquire_subtable(entry: *PageTableEntry) *[512]PageTableEntry {
+fn acquireSubtable(entry: *PageTableEntry) *[512]PageTableEntry {
     if (entry.present) {
-        if (entry.is_hugepage()) {
+        if (entry.isHugepage()) {
             panic("Tried to remap inside a hugepage !", null);
         }
 
         const legacy_table = @intToPtr(*[512]PageTableEntry, entry.get_phy_addr());
 
-        if (pmem.is_ours(entry.get_phy_addr())) {
+        if (pmem.isOurs(entry.get_phy_addr())) {
             return legacy_table;
         } else {
             var table = @intToPtr(*[512]PageTableEntry, pmem.allocatePage());
@@ -249,17 +249,17 @@ pub fn unmap(linear: LinearAddress) void {
 
     if (!pml4_entry.present) { platform.invlpg(linear.as_u64()); return; }
 
-    const pdpt: *[512]PageTableEntry = acquire_subtable(pml4_entry);
+    const pdpt: *[512]PageTableEntry = acquireSubtable(pml4_entry);
     const pdpt_entry = &pdpt[linear.pdpt];
 
     if (!pdpt_entry.present) { platform.invlpg(linear.as_u64()); return; }
     
-    const pd: *[512]PageTableEntry = acquire_subtable(pdpt_entry);
+    const pd: *[512]PageTableEntry = acquireSubtable(pdpt_entry);
     const pd_entry = &pd[linear.pd];
 
     if (!pd_entry.present) { platform.invlpg(linear.as_u64()); return; }
     
-    const pt: *[512]PageTableEntry = acquire_subtable(pd_entry);
+    const pt: *[512]PageTableEntry = acquireSubtable(pd_entry);
     const pt_entry = &pt[linear.pt];
 
     if (!pt_entry.present) { platform.invlpg(linear.as_u64()); return; }
@@ -272,9 +272,9 @@ pub fn unmap(linear: LinearAddress) void {
 // 2Mb pages are also mappable, see below.
 pub fn map(linear: LinearAddress, physical: u64) void {
     const pml4 = @intToPtr(*[512]PageTableEntry, platform.readCR("3") & ~@as(u64, 0xFFF));
-    var pdpt: *[512]PageTableEntry = acquire_subtable(&pml4[linear.pml4]);
-    var pd: *[512]PageTableEntry = acquire_subtable(&pdpt[linear.pdpt]);
-    var pt: *[512]PageTableEntry = acquire_subtable(&pd[linear.pd]);
+    var pdpt: *[512]PageTableEntry = acquireSubtable(&pml4[linear.pml4]);
+    var pd: *[512]PageTableEntry = acquireSubtable(&pdpt[linear.pdpt]);
+    var pt: *[512]PageTableEntry = acquireSubtable(&pd[linear.pd]);
 
     if (pt[linear.pt].present) {
         panic("Tried to map an already mapped address.", null);
@@ -289,16 +289,16 @@ pub fn map(linear: LinearAddress, physical: u64) void {
     platform.invlpg(linear.as_u64());
 }
 
-pub fn map_2MB(linear: LinearAddress, physical: u64) void {
+pub fn map2MB(linear: LinearAddress, physical: u64) void {
     const pml4 = @intToPtr(*[512]PageTableEntry, platform.readCR("3") & ~@as(u64, 0xFFF));
-    var pdpt: *[512]PageTableEntry = acquire_subtable(&pml4[linear.pml4]);
-    var pd: *[512]PageTableEntry = acquire_subtable(&pdpt[linear.pdpt]);
+    var pdpt: *[512]PageTableEntry = acquireSubtable(&pml4[linear.pml4]);
+    var pd: *[512]PageTableEntry = acquireSubtable(&pdpt[linear.pdpt]);
 
     if (pd[linear.pd].present) {
         panic("Tried to map an already mapped address.", null);
     }
     
-    pd[linear.pd] = PageTableEntry.new_huge(physical, true, false);
+    pd[linear.pd] = PageTableEntry.newHuge(physical, true, false);
     pdpt[linear.pdpt] = PageTableEntry.new(@ptrToInt(pd), true, false);
     pml4[linear.pml4] = PageTableEntry.new(@ptrToInt(pdpt), true, false);
 

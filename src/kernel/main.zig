@@ -29,68 +29,68 @@ fn user_fn() void {
 }
 
 // Returns the address of a segment that contains at lean 64 free pages
-fn do_exit_boot_services(boot_services : *uefi.tables.BootServices) u64 {
+fn doExitBootServices(bootServices : *uefi.tables.BootServices) u64 {
     // get the current memory map
-    var memory_map: [*]uefi.tables.MemoryDescriptor = undefined;
-    var memory_map_size: usize = 0;
-    var memory_map_key: usize = undefined;
-    var descriptor_size: usize = undefined;
-    var descriptor_version: u32 = undefined;
+    var memoryMap: [*]uefi.tables.MemoryDescriptor = undefined;
+    var memoryMapSize: usize = 0;
+    var memoryMapKey: usize = undefined;
+    var descriptorSize: usize = undefined;
+    var descriptorVersion: u32 = undefined;
     
-    while (uefi.Status.BufferTooSmall == boot_services.getMemoryMap(
-            &memory_map_size, memory_map, &memory_map_key, &descriptor_size, &descriptor_version)
+    while (uefi.Status.BufferTooSmall == bootServices.getMemoryMap(
+            &memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion)
     ) {
-        if (uefi.Status.Success != boot_services.allocatePool(
-                uefi.tables.MemoryType.BootServicesData, memory_map_size, @ptrCast(*[*]align(8) u8, &memory_map)
+        if (uefi.Status.Success != bootServices.allocatePool(
+                uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap)
         )) { panic("Could not access the memory map.", null); }
     }
 
     var i : usize = 0;
     var mem : ?u64 = null;
-    while (i < memory_map_size / descriptor_size) : (i += 1) {
-        if (memory_map[i].type == uefi.tables.MemoryType.ConventionalMemory) {
-            if (memory_map[i].number_of_pages > 64) {
-                mem = memory_map[i].physical_start;
+    while (i < memoryMapSize / descriptorSize) : (i += 1) {
+        if (memoryMap[i].type == uefi.tables.MemoryType.ConventionalMemory) {
+            if (memoryMap[i].number_of_pages > 64) {
+                mem = memoryMap[i].physical_start;
             }
         }
     }
     
     serial.writeText("\n\n");
 
-    const conventional_memory = uefi.tables.MemoryType.ConventionalMemory;
-    const boot_services_code = uefi.tables.MemoryType.BootServicesCode;
-    const boot_services_data = uefi.tables.MemoryType.BootServicesData;
+    const conventionalMemory = uefi.tables.MemoryType.ConventionalMemory;
+    const bootServicesCode = uefi.tables.MemoryType.BootServicesCode;
+    const bootServicesData = uefi.tables.MemoryType.BootServicesData;
 
     i = 0;
-    var curr_start: ?u64 = null;
-    var curr_end: u64 = 0;
-    while (i < memory_map_size / descriptor_size) : (i += 1) {
-        const desc = memory_map[i];
+    var currStart: ?u64 = null;
+    var currEnd: u64 = 0;
+    while (i < memoryMapSize / descriptorSize) : (i += 1) {
+        const desc = memoryMap[i];
         const end = desc.physical_start + desc.number_of_pages * 4096;
-        if (desc.type != conventional_memory and desc.type != boot_services_code and desc.type != boot_services_data) { continue; }
+        if (desc.type != conventionalMemory and desc.type != bootServicesCode and desc.type != bootServicesData) { continue; }
 
-        if (curr_start) |start| {
-            if (curr_end == desc.physical_start) {
-                curr_end = end;
+        if (currStart) |start| {
+            if (currEnd == desc.physical_start) {
+                currEnd = end;
             } else {
-                const pages = (curr_end - start) / 4096;
-                serial.printf("{x:0>16}..{x:0>16} : {} (0x{x}) pages\n", .{ start, curr_end, pages, pages });
-                curr_start = desc.physical_start;
-                curr_end = end;
+                const pages = (currEnd - start) / 4096;
+                serial.printf("{x:0>16}..{x:0>16} : {} (0x{x}) pages\n", .{ start, currEnd, pages, pages });
+                currStart = desc.physical_start;
+                currEnd = end;
             }
         } else {
-            curr_start = desc.physical_start;
-            curr_end = end;
+            currStart = desc.physical_start;
+            currEnd = end;
         }
     }
-    if (curr_start) |start| {
-        const pages = (curr_end - start) / 4096;
-        serial.printf("{x:0>16}..{x:0>16} : {} ({x}) pages\n", .{ start, curr_end, pages, pages });
+    if (currStart) |start| {
+        const pages = (currEnd - start) / 4096;
+        serial.printf("{x:0>16}..{x:0>16} : {} ({x}) pages\n", .{ start, currEnd, pages, pages });
     }
 
     serial.writeText("\n\n");
 
-    if (boot_services.exitBootServices(uefi.handle, memory_map_key) != uefi.Status.Success) {
+    if (bootServices.exitBootServices(uefi.handle, memoryMapKey) != uefi.Status.Success) {
         panic("Failed to exit boot services.", null);
     }
 
@@ -136,7 +136,7 @@ pub fn main() void {
     // if (retCode != uefi.Status.Success) {
     //     return;
     //}
-    const freeSegAddr = do_exit_boot_services(bootServices);
+    const freeSegAddr = doExitBootServices(bootServices);
 
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
     tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});

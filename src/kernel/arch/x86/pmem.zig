@@ -18,7 +18,7 @@ pub fn registerAvailableMem(base: u64) void {
     mem_base = base;
 }
 
-pub fn is_ours(addr: u64) bool {
+pub fn isOurs(addr: u64) bool {
     if (addr < mem_base) { return false; }
     const i = (addr - mem_base) >> 12;
     return 0 <= i and i < 64;
