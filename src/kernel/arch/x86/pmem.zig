@@ -1,11 +1,12 @@
 
+const layout = @import("layout.zig");
 const serial = @import("../../debug/serial.zig");
 
 const panic = serial.panic;
 
 var mem_base: u64 = undefined;
-var available: [64]bool = init: {
-    var val: [64]bool = undefined;
+var available: [layout.REQUIRED_PAGES_COUNT]bool = init: {
+    var val: [layout.REQUIRED_PAGES_COUNT]bool = undefined;
     for (val) |*pt| {
         pt.* = true;
     }
@@ -13,7 +14,7 @@ var available: [64]bool = init: {
 };
 
 // Register the base address of a location where
-// 64 consecutive pages are available.
+// REQUIRED_PAGES_COUNT consecutive pages are available.
 pub fn registerAvailableMem(base: u64) void {
     mem_base = base;
 }
@@ -21,12 +22,12 @@ pub fn registerAvailableMem(base: u64) void {
 pub fn isOurs(addr: u64) bool {
     if (addr < mem_base) { return false; }
     const i = (addr - mem_base) >> 12;
-    return 0 <= i and i < 64;
+    return 0 <= i and i < layout.REQUIRED_PAGES_COUNT;
 }
 
 pub fn allocatePage() u64 {
     var i: u64 = 0;
-    while (i < 64) : (i += 1) {
+    while (i < layout.REQUIRED_PAGES_COUNT) : (i += 1) {
         if (available[i]) {
             available[i] = false;
             return mem_base + i * 0x1000;

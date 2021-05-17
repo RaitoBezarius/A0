@@ -28,8 +28,13 @@ fn user_fn() void {
     while (true) {}
 }
 
-// Returns the address of a segment that contains at lean 64 free pages
-fn doExitBootServices(bootServices : *uefi.tables.BootServices) u64 {
+const SegmentInfo = struct {
+    start : u64,
+    pagesLen : u64,
+};
+
+// Returns the address of the free segment that contains the most pages
+fn doExitBootServices(bootServices : *uefi.tables.BootServices) SegmentInfo {
     // get the current memory map
     var memoryMap: [*]uefi.tables.MemoryDescriptor = undefined;
     var memoryMapSize: usize = 0;
@@ -44,16 +49,6 @@ fn doExitBootServices(bootServices : *uefi.tables.BootServices) u64 {
                 uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap)
         )) { panic("Could not access the memory map.", null); }
     }
-
-    var i : usize = 0;
-    var mem : ?u64 = null;
-    while (i < memoryMapSize / descriptorSize) : (i += 1) {
-        if (memoryMap[i].type == uefi.tables.MemoryType.ConventionalMemory) {
-            if (memoryMap[i].number_of_pages > 64) {
-                mem = memoryMap[i].physical_start;
-            }
-        }
-    }
     
     serial.writeText("\n\n");
 
@@ -61,7 +56,10 @@ fn doExitBootServices(bootServices : *uefi.tables.BootServices) u64 {
     const bootServicesCode = uefi.tables.MemoryType.BootServicesCode;
     const bootServicesData = uefi.tables.MemoryType.BootServicesData;
 
-    i = 0;
+    var mem : ?u64 = null;
+    var maxPages : u64 = 0;
+
+    var i : u64 = 0;
     var currStart: ?u64 = null;
     var currEnd: u64 = 0;
     while (i < memoryMapSize / descriptorSize) : (i += 1) {
@@ -77,6 +75,11 @@ fn doExitBootServices(bootServices : *uefi.tables.BootServices) u64 {
                 serial.printf("{x:0>16}..{x:0>16} : {} (0x{x}) pages\n", .{ start, currEnd, pages, pages });
                 currStart = desc.physical_start;
                 currEnd = end;
+
+                if (maxPages < pages) {
+                    mem = currStart;
+                    maxPages = pages;
+                }
             }
         } else {
             currStart = desc.physical_start;
@@ -86,6 +89,11 @@ fn doExitBootServices(bootServices : *uefi.tables.BootServices) u64 {
     if (currStart) |start| {
         const pages = (currEnd - start) / 4096;
         serial.printf("{x:0>16}..{x:0>16} : {} ({x}) pages\n", .{ start, currEnd, pages, pages });
+
+        if (maxPages < pages) {
+            mem = currStart;
+            maxPages = pages;
+        }
     }
 
     serial.writeText("\n\n");
@@ -95,7 +103,7 @@ fn doExitBootServices(bootServices : *uefi.tables.BootServices) u64 {
     }
 
     if (mem) |addr| {
-        return addr;
+        return SegmentInfo { .start = addr, .pagesLen = maxPages };
         //pmem.registerAvailableMem(addr);
     } else {
         panic("Not enough memory.", null);
@@ -131,18 +139,13 @@ pub fn main() void {
     platform.preinitialize(uefiAllocator.systemAllocator);
     tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
-    // uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
-    // var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
-    // if (retCode != uefi.Status.Success) {
-    //     return;
-    //}
-    const freeSegAddr = doExitBootServices(bootServices);
+    const longestSegment = doExitBootServices(bootServices);
 
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
     tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
 
     tty.serialPrint("Platform initialization...\n", .{});
-    platform.initialize(freeSegAddr);
+    platform.initialize(longestSegment.start, longestSegment.pagesLen);
     tty.serialPrint("Platform initialized.\n", .{});
 
     // scheduler.selfTest();

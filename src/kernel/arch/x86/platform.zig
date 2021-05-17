@@ -1,8 +1,9 @@
 const std = @import("std");
 const gdt = @import("gdt.zig");
 const idt = @import("idt.zig");
-const vmem = @import("vmem.zig");
+const layout = @import("layout.zig");
 const pmem = @import("pmem.zig");
+const vmem = @import("vmem.zig");
 const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
 const Task = @import("../../task.zig").Task;
@@ -44,8 +45,12 @@ pub fn preinitialize(allocator: *std.mem.Allocator) void {
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
-// Takes the base address of a segment that contains at least 64 free pages
-pub fn initialize(freeSegAddr : u64) void {
+// Takes the base address of a segment that should contain at least REQUIRED_PAGES_COUNT pages
+pub fn initialize(freeSegAddr : u64, freeSegLen : u64) void {
+    if (freeSegLen < layout.REQUIRED_PAGES_COUNT) {
+        serial.panic("Not enough memory !", null);
+    }
+
     pmem.registerAvailableMem(freeSegAddr);
     vmem.initialize();
     pit.initialize();

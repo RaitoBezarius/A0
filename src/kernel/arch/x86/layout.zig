@@ -1,3 +1,6 @@
+// Pages store
+pub const REQUIRED_PAGES_COUNT = 512;
+
 // Identity mapped
 pub const Stack = 0x80000;
 pub const VRAM = 0xB8000;
