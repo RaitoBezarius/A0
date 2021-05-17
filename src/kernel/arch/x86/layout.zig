@@ -11,7 +11,9 @@ pub const Identity = 0x1600000;
 pub const Temporary = 0x1600000;
 pub const Heap = 0x1610000;
 
+// User structures
 // TODO: User space
+pub const UserMessages = 0x0;
 
 // Paging hiearchies
 pub const PageTables = 0xFFC00000; // 4KB

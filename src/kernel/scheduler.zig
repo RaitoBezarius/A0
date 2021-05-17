@@ -26,6 +26,14 @@ var soonTimeouts: TaskQueue = TaskQueue{}; // Sorted
 var lateTimeouts: TaskQueue = TaskQueue{}; // Unsorted
 var farFutureTimeouts: TaskQueue = TaskQueue{}; // Unsorted
 
+pub fn current() ?TaskQueue.Node {
+    if (current_task_node == undefined) {
+        return null;
+    } else {
+        return current_task_node;
+    }
+}
+
 fn idle() void {
     // platform.ioWait();
     platform.hlt();
