@@ -1,8 +1,16 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const A0 = @import("lib").A0;
+const tty = @import("graphics/tty.zig");
+const TaskMod = @import("task.zig");
+const Task = TaskMod.Task;
+const TaskState = TaskMod.TaskState;
+const Message = A0.Message;
 const TailQueue = std.TailQueue;
+const HashMap = std.AutoHashMap;
 const LinkedList = std.LinkedList;
 
-const kAllocator: *Allocator = undefined;
+var kAllocator: *const Allocator = undefined;
 // Copy an user pointer to kernel land using transferArea.
 fn userToKernel(user_ptr: usize, size: usize, transferArea: usize) usize {}
 // Copy a kernel pointer to user land using transferArea.
@@ -13,7 +21,7 @@ pub const Mailbox = struct {
     waiting_queue: TailQueue(Task),
 
     pub fn init() Mailbox {
-        return Mailbox{ .messages = TailQueue(Message).init(), .waiting_queue = TailQueue(Task).init() };
+        return Mailbox{ .messages = TailQueue(Message){}, .waiting_queue = TailQueue(Task){} };
     }
 };
 
@@ -108,6 +116,6 @@ pub fn deliverMessage(message: Message) void {
 pub fn initialize(allocator: *Allocator) Allocator.Error!void {
     tty.step("IPC primitives", .{});
     kAllocator = allocator;
-    ports = HashMap(u16, *Mailbox).init(&allocator);
+    ports = HashMap(u16, *Mailbox).init(allocator);
     defer tty.stepOK();
 }

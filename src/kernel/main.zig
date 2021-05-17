@@ -11,6 +11,7 @@ const Color = @import("color.zig");
 const tty = @import("tty.zig");
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");
+const ipc = @import("ipc.zig");
 const serial = @import("debug/serial.zig");
 
 // Default panic handler for Zig.
@@ -149,6 +150,12 @@ pub fn main() void {
     scheduler.initialize(@frameAddress(), @frameSize(main), kernelAllocator) catch |err| {
         serial.ppanic("Failed to initialize scheduler: {}", .{err});
     };
+
+    ipc.initialize(kernelAllocator) catch |err| {
+        serial.ppanic("Failed to initialize IPC: {}", .{err});
+    };
+
+    bootscreen.bootVideo();
 
     // runtimeServices.set_virtual_address_map();
 

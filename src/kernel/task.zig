@@ -1,7 +1,8 @@
 const std = @import("std");
 const platform = @import("platform.zig");
-const A0 = @import("lib/a0.zig");
-const Mailbox = A0.Mailbox;
+const A0 = @import("lib").A0;
+const Mailbox = @import("ipc.zig").Mailbox;
+const Message = A0.Message;
 const Allocator = std.mem.Allocator;
 const ComptimeBitmap = @import("lib/bitmap.zig").ComptimeBitmap;
 
