@@ -2,7 +2,7 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const Builder = @import("std").build.Builder;
 
-pub fn build(b: *Builder) !void {
+fn buildKernel(b: *Builder) []const u8 {
     const exe = b.addExecutable("BootX64", "src/kernel/main.zig");
 
     exe.addPackagePath("lib", "src/lib/index.zig");
@@ -47,6 +47,24 @@ pub fn build(b: *Builder) !void {
     });
     extractDebugInfo.step.dependOn(&exe.step);
     b.default_step.dependOn(&extractDebugInfo.step);
+
+    return exe.getOutputPath();
+}
+
+fn buildServer(b: *Builder, comptime name: []const u8) []const u8 {
+    const server = b.addExecutable(name, "servers/" ++ name ++ "/main.zig");
+    server.addPackagePath("lib", "lib/index.zig");
+    server.setOutputPath("build/servers/" ++ name ++ "/" ++ name);
+
+    server.setBuildMode(b.standardReleaseOptions());
+    server.setTarget(.{ .cpu_arch = .x86_64, .os_tag = .freestanding });
+
+    b.default_step.dependOn(&server.step);
+    return server.getOutputPath();
+}
+
+pub fn build(b: *Builder) !void {
+    const kernel = buildKernel(b);
 
     const uefiStartupScript = b.addWriteFile("startup.nsh", "\\EFI\\BOOT\\BootX64.efi");
     const uefi_fw_path = std.os.getenv("OVMF_FW_CODE_PATH") orelse "ovmf_code_x64.bin";
