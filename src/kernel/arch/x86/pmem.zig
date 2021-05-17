@@ -1,34 +1,45 @@
-const std = @import("std");
-const platform = @import("platform.zig");
-const x86 = @import("x86.zig");
 
-const uefi = std.os.uefi;
-const MemoryType = uefi.tables.MemoryType;
-const MemoryDescriptor = uefi.tables.MemoryDescriptor;
-
-const layout = @import("layout.zig");
-// TODO: find out a better way to make this.
-const uefiMemory = @import("../../uefi/memory.zig");
 const serial = @import("../../debug/serial.zig");
-const fmt = @import("std").fmt;
 
-var currentAllocator: *std.mem.Allocator = undefined;
+const panic = serial.panic;
 
-pub fn available() usize {}
+var mem_base: u64 = undefined;
+var available: [64]bool = init: {
+    var val: [64]bool = undefined;
+    for (val) |*pt| {
+        pt.* = true;
+    }
+    break :init val;
+};
 
-pub fn allocate() usize {
-    return @ptrToInt(@ptrCast(*u8, currentAllocator.alloc(u8, x86.PAGE_SIZE) catch unreachable));
+// Register the base address of a location where
+// 64 consecutive pages are available.
+pub fn registerAvailableMem(base: u64) void {
+    mem_base = base;
 }
 
-pub fn free(address: usize) void {
-    currentAllocator.free(@intToPtr([*]u8, address).*);
+pub fn is_ours(addr: u64) bool {
+    if (addr < mem_base) { return false; }
+    const i = (addr - mem_base) >> 12;
+    return 0 <= i and i < 64;
 }
 
-pub fn initialize(preUEFIAllocator: *std.mem.Allocator) void {
-    serial.writeText("Physical memory initializing...\n");
-    currentAllocator = preUEFIAllocator;
-    serial.writeText("Initialized with pre-UEFI allocator.\n");
+pub fn allocatePage() u64 {
+    var i: u64 = 0;
+    while (i < 64) : (i += 1) {
+        if (available[i]) {
+            available[i] = false;
+            return mem_base + i * 0x1000;
+        }
+    }
+    panic("No pages of memory left (in pmem.zig).\n", null);
 }
 
-// Use the memory map to reclaim all memory and reorganize it.
-pub fn overthrowUEFI() void {}
+pub fn freePage(addr: u64) void {
+    if (is_ours(addr)) {
+        available[i] = true;
+    } else {
+        panic("Tried to free a page that doesn't belong to us !\n", null);
+    }
+}
+

@@ -28,6 +28,80 @@ fn user_fn() void {
     while (true) {}
 }
 
+// Returns the address of a segment that contains at lean 64 free pages
+fn do_exit_boot_services(boot_services : *uefi.tables.BootServices) u64 {
+    // get the current memory map
+    var memory_map: [*]uefi.tables.MemoryDescriptor = undefined;
+    var memory_map_size: usize = 0;
+    var memory_map_key: usize = undefined;
+    var descriptor_size: usize = undefined;
+    var descriptor_version: u32 = undefined;
+    
+    while (uefi.Status.BufferTooSmall == boot_services.getMemoryMap(
+            &memory_map_size, memory_map, &memory_map_key, &descriptor_size, &descriptor_version)
+    ) {
+        if (uefi.Status.Success != boot_services.allocatePool(
+                uefi.tables.MemoryType.BootServicesData, memory_map_size, @ptrCast(*[*]align(8) u8, &memory_map)
+        )) { panic("Could not access the memory map.", null); }
+    }
+
+    var i : usize = 0;
+    var mem : ?u64 = null;
+    while (i < memory_map_size / descriptor_size) : (i += 1) {
+        if (memory_map[i].type == uefi.tables.MemoryType.ConventionalMemory) {
+            if (memory_map[i].number_of_pages > 64) {
+                mem = memory_map[i].physical_start;
+            }
+        }
+    }
+    
+    serial.writeText("\n\n");
+
+    const conventional_memory = uefi.tables.MemoryType.ConventionalMemory;
+    const boot_services_code = uefi.tables.MemoryType.BootServicesCode;
+    const boot_services_data = uefi.tables.MemoryType.BootServicesData;
+
+    i = 0;
+    var curr_start: ?u64 = null;
+    var curr_end: u64 = 0;
+    while (i < memory_map_size / descriptor_size) : (i += 1) {
+        const desc = memory_map[i];
+        const end = desc.physical_start + desc.number_of_pages * 4096;
+        if (desc.type != conventional_memory and desc.type != boot_services_code and desc.type != boot_services_data) { continue; }
+
+        if (curr_start) |start| {
+            if (curr_end == desc.physical_start) {
+                curr_end = end;
+            } else {
+                const pages = (curr_end - start) / 4096;
+                serial.printf("{x:0>16}..{x:0>16} : {} (0x{x}) pages\n", .{ start, curr_end, pages, pages });
+                curr_start = desc.physical_start;
+                curr_end = end;
+            }
+        } else {
+            curr_start = desc.physical_start;
+            curr_end = end;
+        }
+    }
+    if (curr_start) |start| {
+        const pages = (curr_end - start) / 4096;
+        serial.printf("{x:0>16}..{x:0>16} : {} ({x}) pages\n", .{ start, curr_end, pages, pages });
+    }
+
+    serial.writeText("\n\n");
+
+    if (boot_services.exitBootServices(uefi.handle, memory_map_key) != uefi.Status.Success) {
+        panic("Failed to exit boot services.", null);
+    }
+
+    if (mem) |addr| {
+        return addr;
+        //pmem.registerAvailableMem(addr);
+    } else {
+        panic("Not enough memory.", null);
+    }
+}
+
 pub fn main() void {
     // FIXME(Ryan): complete the Graphics & TTY kernel impl to enable scrolling.
     // Then reuse it for everything else.
@@ -57,16 +131,18 @@ pub fn main() void {
     platform.preinitialize(uefiAllocator.systemAllocator);
     tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
-    uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
-    var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
-    if (retCode != uefi.Status.Success) {
-        return;
-    }
+    // uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
+    // var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
+    // if (retCode != uefi.Status.Success) {
+    //     return;
+    //}
+    const freeSegAddr = do_exit_boot_services(bootServices);
+
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
     tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
 
     tty.serialPrint("Platform initialization...\n", .{});
-    platform.initialize();
+    platform.initialize(freeSegAddr);
     tty.serialPrint("Platform initialized.\n", .{});
 
     // scheduler.selfTest();

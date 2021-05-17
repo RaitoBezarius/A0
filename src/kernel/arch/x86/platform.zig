@@ -38,15 +38,16 @@ pub const Registers = extern struct { r11: u64, r10: u64, r9: u64, r8: u64, rcx:
 
 pub fn preinitialize(allocator: *std.mem.Allocator) void {
     cli(); // Disable all interrupts.
-    pmem.initialize(allocator);
     gdt.initialize();
     idt.initialize();
-    // vmem.initialize();
     // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
-pub fn initialize() void {
+// Takes the base address of a segment that contains at least 64 free pages
+pub fn initialize(freeSegAddr : u64) void {
+    pmem.registerAvailableMem(freeSegAddr);
+    vmem.initialize();
     pit.initialize();
     sti();
     // TODO: timer.initialize();
