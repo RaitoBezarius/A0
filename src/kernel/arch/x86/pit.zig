@@ -1,6 +1,5 @@
 const irq = @import("interrupts.zig");
 const platform = @import("platform.zig");
-const tty = @import("../../tty.zig");
 const serial = @import("../../debug/serial.zig");
 const tty = @import("../../graphics/tty.zig");
 const scheduler = @import("../../scheduler.zig");

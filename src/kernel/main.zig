@@ -134,7 +134,7 @@ pub fn main() void {
     tty.serialPrint("UEFI memory and debug console setup.\n", .{});
 
     tty.step("Platform preinitialization...", .{});
-    platform.preinitialize(uefiAllocator.systemAllocator);
+    platform.preinitialize();
     tty.stepOK();
     tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 

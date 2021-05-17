@@ -236,13 +236,13 @@ pub fn drawText(text: []const u8) void {
         drawChar(char, state.textColor.fg, state.textColor.bg);
     }
 }
-pub fn alignLeft(offset: usize) void {
-    var font = psf2.asFont(state.font);
+pub fn textAlignLeft(offset: usize) void {
+    const font = psf2.asFont(state.font);
     // Move cursor left of offset chars.
     state.cursor.x = @bitCast(i32, @truncate(u32, offset * font.width));
 }
-pub fn moveCursor(vOffset: i32, hOffset: i32) void {
-    var font = psf2.asFont(state.font);
+pub fn moveTextCursor(vOffset: i32, hOffset: i32) void {
+    const font = psf2.asFont(state.font);
     // Move cursor left, right, bottom, top
     state.cursor.x += hOffset * @bitCast(i32, font.width);
     state.cursor.y += vOffset * @bitCast(i32, font.height);
