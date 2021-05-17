@@ -36,17 +36,17 @@ pub fn receive(dst: *Message) Allocator.Error!void {
     const mailbox = getMailbox(dst.receiver);
 
     const receivingTaskNode = scheduler.current().?;
-    receivingTaskNode.data.receive_mailbox_handler = dst;
+    receivingTaskNode.data.message_target = dst;
 
     if (mailbox.messages.popFirst()) |first| {
         const message = first.data;
         deliverMessage(message);
-        // destroy the node 'first'
+        kAllocator.destroy(first);
     } else {
         // Force unschedule the task.
         scheduler.forceUnschedule(receivingTaskNode);
         receivingTask.state = TaskState.Sleep;
-        mailbox.waiting_queue.append(&receivingTaskNode.link);
+        mailbox.waiting_queue.append(receivingTaskNode);
     }
 }
 
@@ -63,14 +63,12 @@ pub fn send(message: *const Message) Allocator.Error!void {
     const msgCopy = processOutgoingMessage(message.*);
     const mailbox = getMailbox(message.receiver);
 
-    if (mailbox.waiting_queue.popFirst()) |first| {
-        //const receivingTask = @fieldParentPtr(Task, "link", first);
-        //receivingTask.state =
-        // TODO: Prepare to wake receivingTask using scheduler.
+    if (mailbox.waiting_queue.popFirst()) |receivingTask| {
+        scheduler.scheduleBack(receivingTask);
         deliverMessage(msgCopy);
     } else {
         // Queue the message.
-        const node = mailbox.messages.createNode(msgCopy, &allocator) catch unreachable;
+        const node = mailbox.messages.createNode(msgCopy, kAllocator);
         mailbox.messages.append(node);
     }
 }
