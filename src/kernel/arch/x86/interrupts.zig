@@ -39,7 +39,6 @@ fn unhandled(context: *x86.Context) usize {
 }
 
 export fn interruptDispatch(context: *x86.Context) usize {
-    serial.writeText("!!!! INTERRUPT DISPATCH !!!!\n");
     const n = @truncate(u8, context.interrupt_n);
 
     switch (n) {
