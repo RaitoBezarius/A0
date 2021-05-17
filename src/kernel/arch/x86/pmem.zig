@@ -1,4 +1,3 @@
-
 const layout = @import("layout.zig");
 const serial = @import("../../debug/serial.zig");
 
@@ -10,7 +9,7 @@ var available: [layout.REQUIRED_PAGES_COUNT]bool = undefined;
 // Register the base address of a location where
 // REQUIRED_PAGES_COUNT consecutive pages are available.
 pub fn initialize(base: u64) void {
-    var i : u64 = 0;
+    var i: u64 = 0;
     while (i < layout.REQUIRED_PAGES_COUNT) : (i += 1) {
         available[i] = true;
     }
@@ -19,7 +18,9 @@ pub fn initialize(base: u64) void {
 }
 
 pub fn isOurs(addr: u64) bool {
-    if (addr < mem_base) { return false; }
+    if (addr < mem_base) {
+        return false;
+    }
     const i = (addr - mem_base) >> 12;
     return 0 <= i and i < layout.REQUIRED_PAGES_COUNT;
 }
@@ -42,4 +43,3 @@ pub fn freePage(addr: u64) void {
         panic("Tried to free a page that doesn't belong to us !\n", null);
     }
 }
-

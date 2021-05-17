@@ -1,4 +1,3 @@
-
 const serial = @import("../../debug/serial.zig");
 const platform = @import("platform.zig");
 const pmem = @import("pmem.zig");
@@ -50,7 +49,7 @@ pub const PageTableEntry = packed struct {
     XD: bool,
 
     pub fn zero() PageTableEntry {
-        return PageTableEntry {
+        return PageTableEntry{
             .present = false,
             .RW = false,
             .US = false,
@@ -67,7 +66,7 @@ pub const PageTableEntry = packed struct {
     }
 
     pub fn new(phy_addr: u64, allow_writes: bool, allow_user: bool) PageTableEntry {
-        return PageTableEntry {
+        return PageTableEntry{
             .present = true,
             .RW = allow_writes,
             .US = allow_user,
@@ -84,7 +83,7 @@ pub const PageTableEntry = packed struct {
     }
 
     pub fn newHuge(phy_addr: u64, allow_writes: bool, allow_user: bool) PageTableEntry {
-        return PageTableEntry {
+        return PageTableEntry{
             .present = true,
             .RW = allow_writes,
             .US = allow_user,
@@ -111,7 +110,7 @@ pub const PageTableEntry = packed struct {
     pub fn set_phy_addr(self: PageTableEntry, physical: u64) void {
         self.phy_addr = @as(u40, physical >> 12);
     }
-    
+
     pub fn get_1GB_phy_addr(self: PageTableEntry) u64 {
         return (self.phy_addr & ~@as(u40, 0b111111111111111111)) << 12;
     }
@@ -125,8 +124,7 @@ pub const PageTableEntry = packed struct {
     }
 
     pub fn debug(self: *PageTableEntry) void {
-        serial.printf(buf[0..], ".present={}; .RW={}; .US={}; physical address = {x}\n",
-            .{ self.present, self.RW, self.US, self.get_phy_addr() });
+        serial.printf(buf[0..], ".present={}; .RW={}; .US={}; physical address = {x}\n", .{ self.present, self.RW, self.US, self.get_phy_addr() });
     }
 };
 
@@ -150,8 +148,7 @@ pub const LinearAddress = packed struct {
         const sign = pml4 & (1 << 8) != 0;
         const pml5: u9 = if (sign) 511 else 0;
         const reserved: u7 = if (sign) 127 else 0;
-        return LinearAddress { .reserved = reserved, .pml5 = pml5, .pml4 = pml4,
-            .pdpt = pdpt, .pd = pd, .pt = pt, .offset = offset };
+        return LinearAddress{ .reserved = reserved, .pml5 = pml5, .pml4 = pml4, .pdpt = pdpt, .pd = pd, .pt = pt, .offset = offset };
     }
 
     // Unsafe constructor, this one does _not_ ensure canonicity of the address.
@@ -160,23 +157,25 @@ pub const LinearAddress = packed struct {
         var addr = @bitCast(LinearAddress, i);
         return addr;
     }
-    
+
     pub fn debug(self: *const LinearAddress) void {
-        serial.printf(buf[0..], ".reserved={}; .pml5={}; .pml4={}; .pdpt={}; .pd={}; .pt={}; .offset={}\n",
-            .{ self.reserved, self.pml5, self.pml4, self.pdpt, self.pd, self.pt, self.offset });
+        serial.printf(buf[0..], ".reserved={}; .pml5={}; .pml4={}; .pdpt={}; .pd={}; .pt={}; .offset={}\n", .{ self.reserved, self.pml5, self.pml4, self.pdpt, self.pd, self.pt, self.offset });
     }
 };
 
 pub fn findPhysicalAddress(linear: LinearAddress) ?u64 {
     const pml4 = @intToPtr(*[512]PageTableEntry, platform.readCR("3") & ~@as(u64, 0xFFF));
 
-    if (!pml4[linear.pml4].present) { return null; }
+    if (!pml4[linear.pml4].present) {
+        return null;
+    }
     const pdpt = @intToPtr(*[512]PageTableEntry, pml4[linear.pml4].get_phy_addr());
 
-    if (!pdpt[linear.pdpt].present) { return null; }
+    if (!pdpt[linear.pdpt].present) {
+        return null;
+    }
 
     if (pdpt[linear.pdpt].isHugepage()) {
-
         const phy_addr = pdpt[linear.pdpt].get_1GB_phy_addr() + (@intCast(u64, linear.pd) << 12) +
             (@intCast(u64, linear.pt) << 12) + @intCast(u64, linear.offset);
 
@@ -184,16 +183,19 @@ pub fn findPhysicalAddress(linear: LinearAddress) ?u64 {
     } else {
         const pd = @intToPtr(*[512]PageTableEntry, pdpt[linear.pdpt].get_phy_addr());
 
-        if (!pd[linear.pd].present) { return null; }
+        if (!pd[linear.pd].present) {
+            return null;
+        }
 
         if (pd[linear.pd].isHugepage()) {
-
             const phy_addr = pd[linear.pd].get_2MB_phy_addr() + (@intCast(u64, linear.pt) << 12) + @intCast(u64, linear.offset);
             return phy_addr;
         } else {
             const pt = @intToPtr(*[512]PageTableEntry, pd[linear.pd].get_phy_addr());
 
-            if (!pt[linear.pt].present) { return null; }
+            if (!pt[linear.pt].present) {
+                return null;
+            }
 
             const physical = pt[linear.pt].get_phy_addr() + @intCast(u64, linear.offset);
             return physical;
@@ -247,22 +249,34 @@ pub fn unmap(linear: LinearAddress) void {
     const pml4 = @intToPtr(*[512]PageTableEntry, platform.readCR("3") & ~@as(u64, 0xFFF));
     const pml4_entry = &pml4[linear.pml4];
 
-    if (!pml4_entry.present) { platform.invlpg(linear.as_u64()); return; }
+    if (!pml4_entry.present) {
+        platform.invlpg(linear.as_u64());
+        return;
+    }
 
     const pdpt: *[512]PageTableEntry = acquireSubtable(pml4_entry);
     const pdpt_entry = &pdpt[linear.pdpt];
 
-    if (!pdpt_entry.present) { platform.invlpg(linear.as_u64()); return; }
-    
+    if (!pdpt_entry.present) {
+        platform.invlpg(linear.as_u64());
+        return;
+    }
+
     const pd: *[512]PageTableEntry = acquireSubtable(pdpt_entry);
     const pd_entry = &pd[linear.pd];
 
-    if (!pd_entry.present) { platform.invlpg(linear.as_u64()); return; }
-    
+    if (!pd_entry.present) {
+        platform.invlpg(linear.as_u64());
+        return;
+    }
+
     const pt: *[512]PageTableEntry = acquireSubtable(pd_entry);
     const pt_entry = &pt[linear.pt];
 
-    if (!pt_entry.present) { platform.invlpg(linear.as_u64()); return; }
+    if (!pt_entry.present) {
+        platform.invlpg(linear.as_u64());
+        return;
+    }
 
     pt[linear.pt] = PageTableEntry.zero();
     platform.invlpg(linear.as_u64());
@@ -297,7 +311,7 @@ pub fn map2MB(linear: LinearAddress, physical: u64) void {
     if (pd[linear.pd].present) {
         panic("Tried to map an already mapped address.", null);
     }
-    
+
     pd[linear.pd] = PageTableEntry.newHuge(physical, true, false);
     pdpt[linear.pdpt] = PageTableEntry.new(@ptrToInt(pd), true, false);
     pml4[linear.pml4] = PageTableEntry.new(@ptrToInt(pdpt), true, false);
@@ -345,4 +359,3 @@ pub fn initialize() void {
 
     serial.writeText("We now have control over the virtual memory !\n");
 }
-

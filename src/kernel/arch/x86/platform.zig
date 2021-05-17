@@ -48,7 +48,7 @@ pub fn preinitialize() void {
 
 // Takes the base address of a segment that should contain at least REQUIRED_PAGES_COUNT pages
 // Returns the kernel allocator
-pub fn initialize(freeSegAddr : u64, freeSegLen : u64) *Allocator {
+pub fn initialize(freeSegAddr: u64, freeSegLen: u64) *Allocator {
     if (freeSegLen < layout.REQUIRED_PAGES_COUNT) {
         serial.panic("Not enough memory !", null);
     }
