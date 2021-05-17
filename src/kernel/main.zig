@@ -125,6 +125,7 @@ pub fn main() void {
     const bootServices = uefi.system_table.boot_services.?;
     uefiSystemInfo.dumpAndAssertPlatformState();
     uefiConsole.puts("UEFI memory and debug console setup.\r\n");
+
     tty.initialize(uefiAllocator.systemAllocator);
 
     tty.serialPrint("Platform preinitialization...\n", .{});
