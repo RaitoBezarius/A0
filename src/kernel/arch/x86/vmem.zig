@@ -221,7 +221,7 @@ fn acquireSubtable(entry: *PageTableEntry) *[512]PageTableEntry {
                 table[i] = legacy_table[i];
             }
 
-            entry.* = PageTableEntry.new(@ptrToInt(table), true, false);
+            entry.* = PageTableEntry.new(@ptrToInt(table), true, true);
             return table;
         }
     } else {
@@ -232,7 +232,7 @@ fn acquireSubtable(entry: *PageTableEntry) *[512]PageTableEntry {
             table[i] = PageTableEntry.zero();
         }
 
-        entry.* = PageTableEntry.new(@ptrToInt(table), true, false);
+        entry.* = PageTableEntry.new(@ptrToInt(table), true, true);
         return table;
     }
 }
