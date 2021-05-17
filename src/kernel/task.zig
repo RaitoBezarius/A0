@@ -35,8 +35,8 @@ pub const Task = struct {
     state: TaskState,
     timeout: u64,
 
-    mailbox_receive_handler: usize, // Callback where we notify of messages.
-    mailbox: Mailbox, // A mailbox where we receive messages !
+    message_target: *Message, // Address where the messages should be sent
+    mailbox: Mailbox, // My own mailbox
 
     pub fn create(entrypoint: Entrypoint, kernel: bool, allocator: *Allocator, priority: u8) Allocator.Error!*Task {
         var task = try allocator.create(Task);
@@ -61,7 +61,7 @@ pub const Task = struct {
             .state = TaskState.Runnable,
             .scheduled = false,
             .timeout = 0, // In nano seconds
-            .mailbox_receive_handler = undefined,
+            .message_target = undefined,
             .mailbox = Mailbox.init(),
         };
         try platform.initializeTask(task, entrypoint, allocator);

@@ -238,7 +238,7 @@ pub fn initialize(kStackStart: usize, kStackSize: usize, allocator: *Allocator) 
         .scheduled = false,
         .timeout = 0,
         .mailbox = Mailbox.init(),
-        .mailbox_receive_handler = undefined,
+        .message_target = undefined,
     };
     current_task_node.data = current_task;
 

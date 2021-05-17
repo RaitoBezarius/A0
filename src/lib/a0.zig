@@ -1,5 +1,7 @@
 // A0's operating system definitions and target for userspace.
 
+// Import implementation of all syscalls here.
+
 pub const MailboxId = union(enum) { Undefined, This, Kernel, Port: u16, Task: u16 };
 
 pub const Message = struct {
