@@ -19,8 +19,8 @@ pub const panic = serial.panic;
 fn os_banner() void {
     const title = "A/0 - v0.0.1";
     tty.alignCenter(title.len);
-    tty.colorPrint(Color.LightRed, Color.Black, "{s}\n\n", .{title});
-    tty.colorPrint(Color.LightBlue, Color.Black, "Booting the microkernel:\n", .{});
+    tty.colorPrint(Color.LightRed, null, "{s}\n\n", .{title});
+    tty.colorPrint(Color.LightBlue, null, "Booting the microkernel:\n", .{});
 }
 
 fn user_fn() void {
@@ -110,8 +110,6 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
 }
 
 pub fn main() void {
-    // FIXME(Ryan): complete the Graphics & TTY kernel impl to enable scrolling.
-    // Then reuse it for everything else.
     uefiMemory.initialize();
     uefiConsole.initialize();
 
@@ -140,7 +138,6 @@ pub fn main() void {
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
     tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
 
-    // TODO: graphics tests work well only when scheduler is disabled, or at low frequency. Seems a graphic buffer issue (?). Currently, freq = 19.
     graphics.selfTest();
     tty.serialPrint("Graphics subsystem self test completed.\n", .{});
     tty.selfTest();
@@ -154,11 +151,7 @@ pub fn main() void {
 
     // runtimeServices.set_virtual_address_map();
 
-    //mem.initialize(MEMORY_OFFSET);
-    //timer.initialize(100);
-    //scheduler.initialize();
-
-    //tty.colorPrint(Color.LightBlue, "\nLoading the servers (driverspace):\n");
+    tty.colorPrint(Color.LightBlue, null, "\nLoading the servers (driverspace):\n", .{});
 
     // The OS is now running.
     //var user_stack: [1024]u64 = undefined;
