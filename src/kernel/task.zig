@@ -1,5 +1,7 @@
 const std = @import("std");
 const platform = @import("platform.zig");
+const A0 = @import("lib/a0.zig");
+const Mailbox = A0.Mailbox;
 const Allocator = std.mem.Allocator;
 const ComptimeBitmap = @import("lib/bitmap.zig").ComptimeBitmap;
 
@@ -33,6 +35,9 @@ pub const Task = struct {
     state: TaskState,
     timeout: u64,
 
+    mailbox_receive_handler: usize, // Callback where we notify of messages.
+    mailbox: Mailbox, // A mailbox where we receive messages !
+
     pub fn create(entrypoint: Entrypoint, kernel: bool, allocator: *Allocator, priority: u8) Allocator.Error!*Task {
         var task = try allocator.create(Task);
         errdefer allocator.destroy(task);
@@ -56,6 +61,8 @@ pub const Task = struct {
             .state = TaskState.Runnable,
             .scheduled = false,
             .timeout = 0, // In nano seconds
+            .mailbox_receive_handler = undefined,
+            .mailbox = Mailbox.init(),
         };
         try platform.initializeTask(task, entrypoint, allocator);
         // taskByPid[pid] = task;

@@ -230,6 +230,8 @@ pub fn initialize(kStackStart: usize, kStackSize: usize, allocator: *Allocator) 
         .state = TaskState.Runnable,
         .scheduled = false,
         .timeout = 0,
+        .mailbox = Mailbox.init(),
+        .mailbox_receive_handler = undefined,
     };
     current_task_node.data = current_task;
 

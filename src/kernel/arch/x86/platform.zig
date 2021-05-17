@@ -57,6 +57,7 @@ pub fn initialize(freeSegAddr: u64, freeSegLen: u64) Allocator {
     vmem.initialize();
     pit.initialize();
     sti();
+    enableSystemCallExtensions();
     // TODO: timer.initialize();
     // rtc.initialize();
     KernelAllocator.initialize(vmem.LinearAddress.four_level_addr(256, 0, 1, 0, 0));
