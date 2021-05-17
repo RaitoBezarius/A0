@@ -11,6 +11,7 @@ const Color = @import("graphics/color.zig");
 const tty = @import("graphics/tty.zig");
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");
+const ipc = @import("ipc.zig");
 const serial = @import("debug/serial.zig");
 const bootscreen = @import("graphics/bootscreen.zig");
 
@@ -150,8 +151,12 @@ pub fn main() void {
     os_banner();
 
     tty.step("Platform initialization", .{});
-    const kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
+    var kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
     tty.stepOK();
+
+    ipc.initialize(&kernelAllocator) catch |err| {
+        serial.ppanic("Failed to initialize IPC: {}", .{err});
+    };
 
     bootscreen.bootVideo();
 

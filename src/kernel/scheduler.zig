@@ -2,6 +2,7 @@ const std = @import("std");
 const TaskMod = @import("task.zig");
 const Task = TaskMod.Task;
 const TaskState = TaskMod.TaskState;
+const Mailbox = @import("ipc.zig").Mailbox;
 const platform = @import("platform.zig");
 const serial = @import("debug/serial.zig");
 const tty = @import("graphics/tty.zig");
