@@ -145,11 +145,11 @@ pub fn alignLeft(offset: usize) void {
 }
 
 pub fn alignRight(offset: usize) void {
-    alignLeft(SCREEN_MODE_WIDTH - offset);
+    alignLeft(state.screen.width - offset);
 }
 
 pub fn alignCenter(strLen: usize) void {
-    alignLeft((SCREEN_MODE_WIDTH - strLen) / 2);
+    alignLeft((state.screen.width - strLen) / 2);
 }
 
 pub fn panic(comptime format: []const u8, args: anytype) noreturn {
@@ -170,7 +170,7 @@ pub fn stepOK() void {
 }
 
 pub fn selfTest() void {
-    print("{}", .{">>>\tLorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce vitae ex eros. Suspendisse a purus at lorem porta porttitor quis a arcu. Aenean hendrerit arcu sed mi tincidunt auctor. Aliquam lorem mauris, semper eu erat ac, commodo sollicitudin ex. Aliquam non lorem vitae arcu posuere suscipit eget in eros. Aenean ultrices mauris quis est vestibulum, eu fringilla diam laoreet. Donec ornare erat nisi, a lobortis mauris pulvinar ut. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Donec euismod mi in sapien lacinia, vel consectetur risus pretium.X\x08\n\n"});
+    print("{s}", .{">>>\tLorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce vitae ex eros. Suspendisse a purus at lorem porta porttitor quis a arcu. Aenean hendrerit arcu sed mi tincidunt auctor. Aliquam lorem mauris, semper eu erat ac, commodo sollicitudin ex. Aliquam non lorem vitae arcu posuere suscipit eget in eros. Aenean ultrices mauris quis est vestibulum, eu fringilla diam laoreet. Donec ornare erat nisi, a lobortis mauris pulvinar ut. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Donec euismod mi in sapien lacinia, vel consectetur risus pretium.X\x08\n\n"});
     colorPrint(Color.LightGreen, Color.Red, "This is a green text on red\n", .{});
     serialPrint("TTY self test completed.\n", .{});
 }
