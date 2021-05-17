@@ -160,6 +160,7 @@ pub fn main() void {
     tty.colorPrint(Color.LightBlue, null, "\nLoading the servers (driverspace):\n", .{});
 
     // The OS is now running.
+    // liftoff to a user init task, pid 1.
     //var user_stack: [1024]u64 = undefined;
     //platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
     platform.hlt();
