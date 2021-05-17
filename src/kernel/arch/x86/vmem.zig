@@ -313,9 +313,9 @@ pub fn map2MB(linear: LinearAddress, physical: u64) void {
         panic("Tried to map an already mapped address.", null);
     }
 
-    pd[linear.pd] = PageTableEntry.newHuge(physical, true, false);
-    pdpt[linear.pdpt] = PageTableEntry.new(@ptrToInt(pd), true, false);
-    pml4[linear.pml4] = PageTableEntry.new(@ptrToInt(pdpt), true, false);
+    pd[linear.pd] = PageTableEntry.newHuge(physical, true, true);
+    pdpt[linear.pdpt] = PageTableEntry.new(@ptrToInt(pd), true, true);
+    pml4[linear.pml4] = PageTableEntry.new(@ptrToInt(pdpt), true, true);
 
     // Don't forget to invalidate !
     platform.invlpg(linear.as_u64());
