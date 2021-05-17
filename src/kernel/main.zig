@@ -126,17 +126,10 @@ pub fn main() void {
     const bootServices = uefi.system_table.boot_services.?;
     uefiSystemInfo.dumpAndAssertPlatformState();
     uefiConsole.puts("UEFI memory and debug console setup.\r\n");
-
-    scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
-        serial.ppanic("Failed to initialize scheduler: {}", .{err});
-    };
-    // scheduler.self_test_init(uefiAllocator.systemAllocator) catch |err| {
-    //     serial.ppanic("Failed to initialize scheduler tests: {}", .{err});
-    // };
     tty.initialize(uefiAllocator.systemAllocator);
 
     tty.serialPrint("Platform preinitialization...\n", .{});
-    platform.preinitialize(uefiAllocator.systemAllocator);
+    platform.preinitialize();
     tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
     const longestSegment = doExitBootServices(bootServices);
@@ -147,6 +140,14 @@ pub fn main() void {
     tty.serialPrint("Platform initialization...\n", .{});
     const kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
     tty.serialPrint("Platform initialized.\n", .{});
+
+    scheduler.initialize(@frameAddress(), @frameSize(main), kernelAllocator) catch |err| {
+        serial.ppanic("Failed to initialize scheduler: {}", .{err});
+    };
+
+    // scheduler.self_test_init(uefiAllocator.systemAllocator) catch |err| {
+    //     serial.ppanic("Failed to initialize scheduler tests: {}", .{err});
+    // };
 
     // scheduler.selfTest();
 

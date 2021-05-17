@@ -38,7 +38,7 @@ pub const Context = extern struct {
 // Valid wrt to isrCommon.
 pub const Registers = extern struct { r11: u64, r10: u64, r9: u64, r8: u64, rcx: u64, rdx: u64, rsi: u64, rdi: u64, rax: u64, rbp: u64 };
 
-pub fn preinitialize(allocator: *std.mem.Allocator) void {
+pub fn preinitialize() void {
     cli(); // Disable all interrupts.
     gdt.initialize();
     idt.initialize();
@@ -48,19 +48,19 @@ pub fn preinitialize(allocator: *std.mem.Allocator) void {
 
 // Takes the base address of a segment that should contain at least REQUIRED_PAGES_COUNT pages
 // Returns the kernel allocator
-pub fn initialize(freeSegAddr : u64, freeSegLen : u64) Allocator {
+pub fn initialize(freeSegAddr : u64, freeSegLen : u64) *Allocator {
     if (freeSegLen < layout.REQUIRED_PAGES_COUNT) {
         serial.panic("Not enough memory !", null);
     }
 
-    pmem.registerAvailableMem(freeSegAddr);
+    pmem.initialize(freeSegAddr);
     vmem.initialize();
     pit.initialize();
     sti();
     // TODO: timer.initialize();
     // rtc.initialize();
     KernelAllocator.initialize(vmem.LinearAddress.four_level_addr(256, 0, 1, 0, 0));
-    return KernelAllocator.kernelAllocator;
+    return &KernelAllocator.kernelAllocator;
 }
 
 pub fn initializeTask(task: *Task, entrypoint: usize, allocator: *Allocator) Allocator.Error!void {

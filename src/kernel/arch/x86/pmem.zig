@@ -5,17 +5,16 @@ const serial = @import("../../debug/serial.zig");
 const panic = serial.panic;
 
 var mem_base: u64 = undefined;
-var available: [layout.REQUIRED_PAGES_COUNT]bool = init: {
-    var val: [layout.REQUIRED_PAGES_COUNT]bool = undefined;
-    for (val) |*pt| {
-        pt.* = true;
-    }
-    break :init val;
-};
+var available: [layout.REQUIRED_PAGES_COUNT]bool = undefined;
 
 // Register the base address of a location where
 // REQUIRED_PAGES_COUNT consecutive pages are available.
-pub fn registerAvailableMem(base: u64) void {
+pub fn initialize(base: u64) void {
+    var i : u64 = 0;
+    while (i < layout.REQUIRED_PAGES_COUNT) : (i += 1) {
+        available[i] = true;
+    }
+
     mem_base = base;
 }
 
