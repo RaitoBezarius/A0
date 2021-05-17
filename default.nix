@@ -38,7 +38,7 @@ in
       OVMF
     ];
     buildInputs = with pkgs; [
-      cachix qemu
+      cachix qemu gnumake
       raito-pkgs.zig
       gdb socat radare2 rr
       (writeScriptBin "enter-qemu-monitor" ''
