@@ -1,7 +1,7 @@
 const layout = @import("layout.zig");
-const serial = @import("../../debug/serial.zig");
+const tty = @import("../../graphics/tty.zig");
 
-const panic = serial.panic;
+const panic = tty.panic;
 
 var mem_base: u64 = undefined;
 var available: [layout.REQUIRED_PAGES_COUNT]bool = undefined;
@@ -33,13 +33,13 @@ pub fn allocatePage() u64 {
             return mem_base + i * 0x1000;
         }
     }
-    panic("No pages of memory left (in pmem.zig).\n", null);
+    panic("No pages of memory left (in pmem.zig).\n", .{});
 }
 
 pub fn freePage(addr: u64) void {
     if (is_ours(addr)) {
         available[i] = true;
     } else {
-        panic("Tried to free a page that doesn't belong to us !\n", null);
+        panic("Tried to free a page that doesn't belong to us !\n", .{});
     }
 }

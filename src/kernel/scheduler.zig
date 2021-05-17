@@ -5,6 +5,7 @@ const TaskState = TaskMod.TaskState;
 const Mailbox = @import("ipc.zig").Mailbox;
 const platform = @import("platform.zig");
 const serial = @import("debug/serial.zig");
+const tty = @import("graphics/tty.zig");
 const Allocator = std.mem.Allocator;
 const TailQueue = std.TailQueue;
 const TaskQueue = TailQueue(*Task);
@@ -174,7 +175,7 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
             //serial.writeText("No new task to be scheduled\n");
             break; // Keep the current task if no task with the same priority is scheduled
         } else if (curTaskPriority >= tasks.len) {
-            serial.ppanic("No task can be scheduled, missing idle task!", .{});
+            tty.panic("No task can be scheduled, missing idle task!", .{});
         } else {
             curTaskPriority += 1;
         }
@@ -214,8 +215,8 @@ pub fn scheduleBack(task_node: *TaskQueue.Node) void {
 }
 
 pub fn initialize(kStackStart: usize, kStackSize: usize, allocator: *Allocator) Allocator.Error!void {
-    serial.writeText("scheduler initialization...\n");
-    defer serial.writeText("scheduler initialized\n");
+    tty.step("Scheduler initialization...", .{});
+    defer tty.stepOK();
 
     var iTaskQueue: u32 = 0;
     while (iTaskQueue < tasks.len) : (iTaskQueue += 1) {

@@ -6,13 +6,14 @@ const uefiMemory = @import("uefi/memory.zig");
 const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
 
-const graphics = @import("graphics.zig");
-const Color = @import("color.zig");
-const tty = @import("tty.zig");
+const graphics = @import("graphics/graphics.zig");
+const Color = @import("graphics/color.zig");
+const tty = @import("graphics/tty.zig");
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");
 const ipc = @import("ipc.zig");
 const serial = @import("debug/serial.zig");
+const bootscreen = @import("graphics/bootscreen.zig");
 
 // Default panic handler for Zig.
 pub const panic = serial.panic;
@@ -44,7 +45,7 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
 
     while (uefi.Status.BufferTooSmall == bootServices.getMemoryMap(&memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion)) {
         if (uefi.Status.Success != bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap))) {
-            panic("Could not access the memory map.", null);
+            tty.panic("Could not access the memory map.", .{});
         }
     }
 
@@ -99,15 +100,19 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
     serial.writeText("\n\n");
 
     if (bootServices.exitBootServices(uefi.handle, memoryMapKey) != uefi.Status.Success) {
-        panic("Failed to exit boot services.", null);
+        tty.panic("Failed to exit boot services.", .{});
     }
 
     if (mem) |addr| {
         return SegmentInfo{ .start = addr, .pagesLen = maxPages };
         //pmem.registerAvailableMem(addr);
     } else {
-        panic("Not enough memory.", null);
+        tty.panic("Not enough memory.", .{});
     }
+}
+
+pub fn dumpState(comptime format: []const u8, args: anytype) void {
+    tty.serialPrint("  >   " ++ format, args);
 }
 
 pub fn main() void {
@@ -119,16 +124,18 @@ pub fn main() void {
     uefiConsole.puts("User serial console initialized.\r\n");
     graphics.initialize();
     uefiConsole.puts("UEFI GOP initialized.\r\n");
+    tty.initialize();
+    tty.serialPrint("TTY initialized\n", .{});
 
     // UEFI-specific initialization
     const bootServices = uefi.system_table.boot_services.?;
-    uefiSystemInfo.dumpAndAssertPlatformState();
-    uefiConsole.puts("UEFI memory and debug console setup.\r\n");
+    tty.serialPrint("Platform state:\n", .{});
+    uefiSystemInfo.dumpAndAssertPlatformState(dumpState);
+    tty.serialPrint("UEFI memory and debug console setup.\n", .{});
 
-    tty.initialize(uefiAllocator.systemAllocator);
-
-    tty.serialPrint("Platform preinitialization...\n", .{});
-    platform.preinitialize();
+    tty.step("Platform preinitialization...", .{});
+    platform.preinitialize(uefiAllocator.systemAllocator);
+    tty.stepOK();
     tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
     const longestSegment = doExitBootServices(bootServices);

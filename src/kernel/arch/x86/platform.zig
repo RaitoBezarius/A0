@@ -6,7 +6,7 @@ const pmem = @import("pmem.zig");
 const vmem = @import("vmem.zig");
 const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
-const tty = @import("../../tty.zig");
+const tty = @import("../../graphics/tty.zig");
 const Task = @import("../../task.zig").Task;
 const Allocator = std.mem.Allocator;
 const KernelAllocator = @import("KernelAllocator.zig");
@@ -50,7 +50,7 @@ pub fn preinitialize() void {
 // Returns the kernel allocator
 pub fn initialize(freeSegAddr: u64, freeSegLen: u64) *Allocator {
     if (freeSegLen < layout.REQUIRED_PAGES_COUNT) {
-        serial.panic("Not enough memory !", null);
+        tty.panic("Not enough memory !", .{});
     }
 
     pmem.initialize(freeSegAddr);

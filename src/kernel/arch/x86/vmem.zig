@@ -1,8 +1,9 @@
 const serial = @import("../../debug/serial.zig");
 const platform = @import("platform.zig");
 const pmem = @import("pmem.zig");
+const tty = @import("../../graphics/tty.zig");
 
-const panic = serial.panic;
+const panic = tty.panic;
 
 var buf: [128]u8 = undefined;
 
@@ -206,7 +207,7 @@ pub fn findPhysicalAddress(linear: LinearAddress) ?u64 {
 fn acquireSubtable(entry: *PageTableEntry) *[512]PageTableEntry {
     if (entry.present) {
         if (entry.isHugepage()) {
-            panic("Tried to remap inside a hugepage !", null);
+            panic("Tried to remap inside a hugepage !", .{});
         }
 
         const legacy_table = @intToPtr(*[512]PageTableEntry, entry.get_phy_addr());
@@ -245,7 +246,6 @@ pub fn unmap(linear: LinearAddress) void {
     //   is referenced by a _page number_, i.e. the upper bits of a linear address.
     // See IDM 3-4-45, §4.10.4.1 about when to invalidate TLBs.
     // See IDM 3-11-1 for TLBs in general and caching.
-
     const pml4 = @intToPtr(*[512]PageTableEntry, platform.readCR("3") & ~@as(u64, 0xFFF));
     const pml4_entry = &pml4[linear.pml4];
 
@@ -291,7 +291,7 @@ pub fn map(linear: LinearAddress, physical: u64) void {
     var pt: *[512]PageTableEntry = acquireSubtable(&pd[linear.pd]);
 
     if (pt[linear.pt].present) {
-        panic("Tried to map an already mapped address.", null);
+        panic("Tried to map an already mapped address.", .{});
     }
 
     pt[linear.pt] = PageTableEntry.new(physical, true, false);
@@ -309,7 +309,7 @@ pub fn map2MB(linear: LinearAddress, physical: u64) void {
     var pd: *[512]PageTableEntry = acquireSubtable(&pdpt[linear.pdpt]);
 
     if (pd[linear.pd].present) {
-        panic("Tried to map an already mapped address.", null);
+        panic("Tried to map an already mapped address.", .{});
     }
 
     pd[linear.pd] = PageTableEntry.newHuge(physical, true, false);
@@ -340,7 +340,7 @@ pub fn initialize() void {
     //  We just check that we are only using 4-level paging.
     var cr4_la57 = platform.readCR("4") & (1 << 12) != 0;
     if (cr4_la57) {
-        panic("Unexpected 5-level paging at UEFI handoff.", null);
+        panic("Unexpected 5-level paging at UEFI handoff.", .{});
     } else {
         serial.writeText("4-level paging, as expected.\n");
     }
