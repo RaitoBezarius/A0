@@ -1,23 +1,23 @@
 const std = @import("std");
 const fmt = std.fmt;
-const platform = @import("arch/x86/platform.zig");
+const platform = @import("../arch/x86/platform.zig");
 const graphics = @import("graphics.zig");
-const psf2 = @import("fonts/psf2.zig");
+const psf2 = @import("../fonts/psf2.zig");
 const Dimensions = graphics.Dimensions;
 const Position = graphics.Position;
 const Color = @import("color.zig");
-const serial = @import("debug/serial.zig");
+const serial = @import("../debug/serial.zig");
 
 const TtyState = struct {
-    screen: Dimensions,
+    screen: Dimensions, // Size in pixels
     fontSize: Dimensions,
-    nbRows: u32,
+    nbRows: u32, // Size of screen in characters
     nbCols: u32,
 };
 var state: TtyState = undefined;
 const TAB_SIZE = 8;
 
-pub fn initialize(allocator: *std.mem.Allocator) void {
+pub fn initialize() void {
     var font = psf2.asFont(psf2.defaultFont);
     var screen = graphics.getDimensions();
 
@@ -141,19 +141,21 @@ pub fn colorPrint(fg: ?u32, bg: ?u32, comptime format: []const u8, args: anytype
 }
 
 pub fn alignLeft(offset: usize) void {
-    graphics.alignLeft(offset);
+    graphics.textAlignLeft(offset);
 }
 
 pub fn alignRight(offset: usize) void {
-    alignLeft(state.screen.width - offset);
+    alignLeft(state.nbCols - offset);
 }
 
 pub fn alignCenter(strLen: usize) void {
-    alignLeft((state.screen.width - strLen) / 2);
+    alignLeft((state.nbCols - strLen) / 2);
 }
 
 pub fn panic(comptime format: []const u8, args: anytype) noreturn {
     colorPrint(Color.White, null, "KERNEL PANIC: " ++ format ++ "\n", args);
+    serial.writeText("\n!!!!!!!!!!!!! KERNEL PANIC !!!!!!!!!!!!!!!\n");
+    serial.printf(format ++ "\n", args);
     platform.hang();
 }
 
@@ -163,7 +165,7 @@ pub fn step(comptime format: []const u8, args: anytype) void {
 }
 
 pub fn stepOK() void {
-    const ok = " [ OK ]";
+    const ok = " [ OK ]\n";
 
     alignRight(ok.len);
     colorPrint(Color.LightGreen, null, ok, .{});

@@ -1,6 +1,5 @@
 const std = @import("std");
 const platform = @import("../platform.zig");
-const uefiConsole = @import("console.zig");
 
 const L = std.unicode.utf8ToUtf16LeStringLiteral;
 const uefi = std.os.uefi;
@@ -15,30 +14,30 @@ const LONG_MODE_ENABLED = "Long mode is enabled\r\n";
 const WARN_LONG_MODE_UNSUPPORTED = "Long mode is not enabled\r\n";
 const WARN_NO_CPUID = "No CPUID instruction was detected, prepare for unforeseen consequences.\r\n";
 
-pub fn dumpAndAssertPlatformState() void {
+pub fn dumpAndAssertPlatformState(comptime print_func: anytype) void {
     if (!platform.isProtectedMode()) {
-        uefiConsole.puts(NO_PROTECT);
+        print_func(NO_PROTECT, .{});
         platform.hang();
     }
 
     if (platform.isPagingEnabled()) {
-        uefiConsole.puts(PAGING_ENABLED);
+        print_func(PAGING_ENABLED, .{});
     }
 
     if (platform.isPAEEnabled()) {
-        uefiConsole.puts(PAE_ENABLED);
+        print_func(PAE_ENABLED, .{});
     }
 
     if (platform.isPSEEnabled()) {
-        uefiConsole.puts(PSE_ENABLED);
+        print_func(PSE_ENABLED, .{});
     }
 
     if (platform.isTSSSet()) {
-        uefiConsole.puts(WARN_TSS_SET);
+        print_func(WARN_TSS_SET, .{});
     }
 
     if (platform.isX87EmulationEnabled()) {
-        uefiConsole.puts(WARN_EM_SET);
+        print_func(WARN_EM_SET, .{});
     }
 
     // FIXME(Ryan): find out a way to detect CPUID.
@@ -47,9 +46,9 @@ pub fn dumpAndAssertPlatformState() void {
     //}
 
     if (platform.isLongModeEnabled()) {
-        uefiConsole.puts(LONG_MODE_ENABLED);
+        print_func(LONG_MODE_ENABLED, .{});
     } else {
-        uefiConsole.puts(WARN_LONG_MODE_UNSUPPORTED);
+        print_func(WARN_LONG_MODE_UNSUPPORTED, .{});
     }
 
     // Handle Loaded Image Protocol and print driverpoint.
@@ -59,6 +58,5 @@ pub fn dumpAndAssertPlatformState() void {
         platform.hang();
     }
 
-    var buf: [4096]u8 = undefined;
-    uefiConsole.printf(buf[0..], "Loaded image: base={x}\r\n", .{@ptrToInt(loadedImage.image_base)});
+    print_func("Loaded image: base={x}\r\n", .{@ptrToInt(loadedImage.image_base)});
 }

@@ -5,6 +5,7 @@ const x86 = @import("platform.zig");
 const sti = x86.sti;
 const hlt = x86.hlt;
 const serial = @import("../../debug/serial.zig");
+const tty = @import("../../graphics/tty.zig");
 
 const PIC1_CMD = 0x20;
 const PIC1_DATA = 0x21;
@@ -30,9 +31,9 @@ fn unhandled(context: *x86.Context) usize {
     const n = context.interrupt_n;
 
     if (n >= IRQ_0) {
-        serial.ppanic("unhandled IRQ number: {d}", .{n - IRQ_0});
+        tty.panic("unhandled IRQ number: {d}", .{n - IRQ_0});
     } else {
-        serial.ppanic("unhandled exception number: {d}", .{n});
+        tty.panic("unhandled exception number: {d}", .{n});
     }
 
     return @ptrToInt(context);
