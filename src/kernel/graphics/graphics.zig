@@ -1,10 +1,10 @@
 const uefi = @import("std").os.uefi;
 // const L = @import("std").unicode.utf8ToUtf16LeStringLiteral;
-const platform = @import("arch/x86/platform.zig");
+const platform = @import("../arch/x86/platform.zig");
 const fmt = @import("std").fmt;
-const psf2 = @import("fonts/psf2.zig");
+const psf2 = @import("../fonts/psf2.zig");
 const Color = @import("color.zig");
-const uefiConsole = @import("uefi/console.zig");
+const uefiConsole = @import("../uefi/console.zig");
 
 var graphicsOutputProtocol: ?*uefi.protocols.GraphicsOutputProtocol = undefined;
 
@@ -199,6 +199,24 @@ pub fn drawRect(x: u32, y: u32, w: u32, h: u32, rgb: u32) void {
     }
 }
 
+pub fn fromRawPixels(x: u32, y: u32, w: u32, h: u32, raw: [*]const Pixel) void {
+    if (!fb.valid) @panic("Invalid framebuffer!\n");
+    const lastLine = y + h;
+    const lastCol = x + w;
+    var linePtr = fb.basePtr + (fb.pixelsPerScanLine * y);
+    var rawPtr = raw;
+    var iLine = y;
+
+    while (iLine < lastLine) : (iLine += 1) {
+        var iCol: u32 = x;
+        while (iCol < lastCol) : (iCol += 1) {
+            linePtr[iCol] = rawPtr[0];
+            rawPtr += 1;
+        }
+        linePtr += fb.pixelsPerScanLine;
+    }
+}
+
 pub fn drawChar(char: u8, fg: u32, bg: u32) void {
     if (!fb.valid) @panic("Invalid framebuffer!");
     // Draw a character at the current cursor.
@@ -207,7 +225,7 @@ pub fn drawChar(char: u8, fg: u32, bg: u32) void {
     psf2.renderChar(font, @ptrCast([*]u32, @alignCast(32, fb.basePtr)), char, state.cursor.x, state.cursor.y, fg, bg, fb.pixelsPerScanLine);
 
     state.cursor.x += @bitCast(i32, font.width);
-    if (state.cursor.x >= fb.width - font.width) {
+    if (state.cursor.x > fb.width - font.width) {
         state.cursor.y += @bitCast(i32, font.height);
         state.cursor.x = 0;
     }
@@ -218,14 +236,16 @@ pub fn drawText(text: []const u8) void {
         drawChar(char, state.textColor.fg, state.textColor.bg);
     }
 }
-pub fn alignLeft(offset: usize) void {
+pub fn textAlignLeft(offset: usize) void {
+    const font = psf2.asFont(state.font);
     // Move cursor left of offset chars.
-    state.cursor.x = @bitCast(i32, offset * state.font.width);
+    state.cursor.x = @bitCast(i32, @truncate(u32, offset * font.width));
 }
-pub fn moveCursor(vOffset: i32, hOffset: i32) void {
+pub fn moveTextCursor(vOffset: i32, hOffset: i32) void {
+    const font = psf2.asFont(state.font);
     // Move cursor left, right, bottom, top
-    state.cursor.x += hOffset * @bitCast(i32, state.font.width);
-    state.cursor.y += vOffset * @bitCast(i32, state.font.height);
+    state.cursor.x += hOffset * @bitCast(i32, font.width);
+    state.cursor.y += vOffset * @bitCast(i32, font.height);
 }
 pub fn setCursorCoords(x: i32, y: i32) void {
     state.cursor.x = x;
@@ -262,6 +282,8 @@ pub fn scroll(px: u32) void {
     }
 }
 
+const img = [_]Pixel{ pixelFromColor(Color.Magenta), pixelFromColor(Color.Magenta), pixelFromColor(Color.Magenta), pixelFromColor(Color.Red), pixelFromColor(Color.Green), pixelFromColor(Color.Red), pixelFromColor(Color.Blue), pixelFromColor(Color.Blue), pixelFromColor(Color.Blue) };
+
 pub fn selfTest() void {
     clear(Color.Black);
     clear(Color.Green);
@@ -269,4 +291,6 @@ pub fn selfTest() void {
     setPixel(0, 0, Color.Cyan);
     setTextColor(Color.Red, Color.Blue);
     drawText("Hello there!");
+
+    fromRawPixels(100, 100, 3, 3, &img);
 }

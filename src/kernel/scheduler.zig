@@ -4,6 +4,7 @@ const Task = TaskMod.Task;
 const TaskState = TaskMod.TaskState;
 const platform = @import("platform.zig");
 const serial = @import("debug/serial.zig");
+const tty = @import("graphics/tty.zig");
 const Allocator = std.mem.Allocator;
 const TailQueue = std.TailQueue;
 const TaskQueue = TailQueue(*Task);
@@ -138,7 +139,7 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
     elapsed_ns += platform.getClockInterval();
     rescheduleTimeouts();
 
-    serial.printf("current task sp: 0x{x}\n", .{current_task.stack_pointer});
+    //serial.printf("current task sp: 0x{x}\n", .{current_task.stack_pointer});
     var curStopped = false;
     if (current_task.state != TaskState.Runnable) {
         curStopped = true;
@@ -149,7 +150,7 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
             const next_task = next_task_node.data;
 
             if (next_task.state == TaskState.Runnable) {
-                serial.printf("picking task pid: {}, stack ptr: 0x{x}\n", .{ next_task.pid, next_task.stack_pointer });
+                //serial.printf("picking task pid: {}, stack ptr: 0x{x}\n", .{ next_task.pid, next_task.stack_pointer });
                 tasks[current_task.priority].prepend(current_task_node);
 
                 // next_task_node.prev = null;
@@ -162,16 +163,16 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
                 next_task.scheduled = false;
             }
         } else if (!curStopped and curTaskPriority == current_task.priority) {
-            serial.writeText("No new task to be scheduled\n");
+            //serial.writeText("No new task to be scheduled\n");
             break; // Keep the current task if no task with the same priority is scheduled
         } else if (curTaskPriority >= tasks.len) {
-            serial.ppanic("No task can be scheduled, missing idle task!", .{});
+            tty.panic("No task can be scheduled, missing idle task!", .{});
         } else {
             curTaskPriority += 1;
         }
     }
 
-    serial.writeText("handing control to selected task\n");
+    //serial.writeText("handing control to selected task\n");
     return current_task.stack_pointer;
 }
 
@@ -205,8 +206,8 @@ pub fn scheduleBack(task_node: *TaskQueue.Node) void {
 }
 
 pub fn initialize(kStackStart: usize, kStackSize: usize, allocator: *Allocator) Allocator.Error!void {
-    serial.writeText("scheduler initialization...\n");
-    defer serial.writeText("scheduler initialized\n");
+    tty.step("Scheduler initialization...", .{});
+    defer tty.stepOK();
 
     var iTaskQueue: u32 = 0;
     while (iTaskQueue < tasks.len) : (iTaskQueue += 1) {
