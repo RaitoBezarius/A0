@@ -1,3 +1,6 @@
+// Pages store
+pub const REQUIRED_PAGES_COUNT = 512;
+
 // Identity mapped
 pub const Stack = 0x80000;
 pub const VRAM = 0xB8000;
@@ -8,7 +11,9 @@ pub const Identity = 0x1600000;
 pub const Temporary = 0x1600000;
 pub const Heap = 0x1610000;
 
+// User structures
 // TODO: User space
+pub const UserMessages = 0x0;
 
 // Paging hiearchies
 pub const PageTables = 0xFFC00000; // 4KB

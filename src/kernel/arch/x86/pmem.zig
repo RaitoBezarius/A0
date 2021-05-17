@@ -1,34 +1,46 @@
-const std = @import("std");
-const platform = @import("platform.zig");
-const x86 = @import("x86.zig");
-
-const uefi = std.os.uefi;
-const MemoryType = uefi.tables.MemoryType;
-const MemoryDescriptor = uefi.tables.MemoryDescriptor;
-
 const layout = @import("layout.zig");
-// TODO: find out a better way to make this.
-const uefiMemory = @import("../../uefi/memory.zig");
-const serial = @import("../../debug/serial.zig");
-const fmt = @import("std").fmt;
+const tty = @import("../../graphics/tty.zig");
 
-var currentAllocator: *std.mem.Allocator = undefined;
+const panic = tty.panic;
 
-pub fn available() usize {}
+var mem_base: u64 = undefined;
+var available: [layout.REQUIRED_PAGES_COUNT]bool = init: {
+    var val: [layout.REQUIRED_PAGES_COUNT]bool = undefined;
+    for (val) |*pt| {
+        pt.* = true;
+    }
+    break :init val;
+};
 
-pub fn allocate() usize {
-    return @ptrToInt(@ptrCast(*u8, currentAllocator.alloc(u8, x86.PAGE_SIZE) catch unreachable));
+// Register the base address of a location where
+// REQUIRED_PAGES_COUNT consecutive pages are available.
+pub fn registerAvailableMem(base: u64) void {
+    mem_base = base;
 }
 
-pub fn free(address: usize) void {
-    currentAllocator.free(@intToPtr([*]u8, address).*);
+pub fn isOurs(addr: u64) bool {
+    if (addr < mem_base) {
+        return false;
+    }
+    const i = (addr - mem_base) >> 12;
+    return 0 <= i and i < layout.REQUIRED_PAGES_COUNT;
 }
 
-pub fn initialize(preUEFIAllocator: *std.mem.Allocator) void {
-    serial.writeText("Physical memory initializing...\n");
-    currentAllocator = preUEFIAllocator;
-    serial.writeText("Initialized with pre-UEFI allocator.\n");
+pub fn allocatePage() u64 {
+    var i: u64 = 0;
+    while (i < layout.REQUIRED_PAGES_COUNT) : (i += 1) {
+        if (available[i]) {
+            available[i] = false;
+            return mem_base + i * 0x1000;
+        }
+    }
+    panic("No pages of memory left (in pmem.zig).\n", .{});
 }
 
-// Use the memory map to reclaim all memory and reorganize it.
-pub fn overthrowUEFI() void {}
+pub fn freePage(addr: u64) void {
+    if (is_ours(addr)) {
+        available[i] = true;
+    } else {
+        panic("Tried to free a page that doesn't belong to us !\n", .{});
+    }
+}

@@ -1,12 +1,15 @@
 const std = @import("std");
 const gdt = @import("gdt.zig");
 const idt = @import("idt.zig");
-const vmem = @import("vmem.zig");
+const layout = @import("layout.zig");
 const pmem = @import("pmem.zig");
+const vmem = @import("vmem.zig");
 const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
+const tty = @import("../../graphics/tty.zig");
 const Task = @import("../../task.zig").Task;
 const Allocator = std.mem.Allocator;
+const KernelAllocator = @import("KernelAllocator.zig");
 
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
@@ -38,19 +41,27 @@ pub const Registers = extern struct { r11: u64, r10: u64, r9: u64, r8: u64, rcx:
 
 pub fn preinitialize(allocator: *std.mem.Allocator) void {
     cli(); // Disable all interrupts.
-    pmem.initialize(allocator);
     gdt.initialize();
     idt.initialize();
-    // vmem.initialize();
     // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
-pub fn initialize() void {
+// Returns the kernel allocator
+pub fn initialize(freeSegAddr: u64, freeSegLen: u64) Allocator {
+    if (freeSegLen < layout.REQUIRED_PAGES_COUNT) {
+        tty.panic("Not enough memory !", .{});
+    }
+
+    pmem.registerAvailableMem(freeSegAddr);
+    vmem.initialize();
     pit.initialize();
     sti();
+    enableSystemCallExtensions();
     // TODO: timer.initialize();
     // rtc.initialize();
+    KernelAllocator.initialize(vmem.LinearAddress.four_level_addr(256, 0, 1, 0, 0));
+    return KernelAllocator.kernelAllocator;
 }
 
 pub fn initializeTask(task: *Task, entrypoint: usize, allocator: *Allocator) Allocator.Error!void {
@@ -192,6 +203,14 @@ pub fn writeMSR(msr: u32, value: u64) void {
     );
 }
 
+pub fn invlpg(v_addr: usize) void {
+    asm volatile ("invlpg (%[v_addr])"
+        :
+        : [v_addr] "r" (v_addr)
+        : "memory"
+    );
+}
+
 pub const EFER_MSR = 0xC0000080;
 pub fn isLongModeEnabled() bool {
     // if (!hasCPUID()) return false; // FIXME(Ryan): use another method.
@@ -204,13 +223,13 @@ pub fn isLongModeEnabled() bool {
 
 pub const STAR_MSR = 0xC0000081;
 pub fn enableSystemCallExtensions() void {
-    serial.writeText("System call extensions will be enabled...\n");
+    tty.step("Activating the system call extensions", .{});
+    defer tty.stepOK();
     var buf: [4096]u8 = undefined;
     var eferMSR = readMSR(EFER_MSR);
     writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.
     var starMSR = readMSR(STAR_MSR);
     writeMSR(STAR_MSR, 0x00180008); // GDT segment.
-    serial.writeText("System call extensions enabled.\n");
 }
 
 pub fn rdtsc() u64 {

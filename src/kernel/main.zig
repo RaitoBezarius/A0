@@ -6,31 +6,116 @@ const uefiMemory = @import("uefi/memory.zig");
 const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
 
-const graphics = @import("graphics.zig");
-const Color = @import("color.zig");
-const tty = @import("tty.zig");
+const graphics = @import("graphics/graphics.zig");
+const Color = @import("graphics/color.zig");
+const tty = @import("graphics/tty.zig");
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");
+const ipc = @import("ipc.zig");
 const serial = @import("debug/serial.zig");
+const bootscreen = @import("graphics/bootscreen.zig");
 
 // Default panic handler for Zig.
 pub const panic = serial.panic;
 
-//fn os_banner() void {
-//    const title = "A/0 - v0.0.1";
-//    tty.alignCenter(title.len);
-//    tty.colorPrint(Color.LightRed, title ++ "\n\n");
-//
-//    tty.colorPrint(Color.LightBlue, "Booting the microkernel:\n");
-//}
+fn os_banner() void {
+    const title = "A/0 - v0.0.1";
+    tty.alignCenter(title.len);
+    tty.colorPrint(Color.LightRed, null, "{s}\n\n", .{title});
+    tty.colorPrint(Color.LightBlue, null, "Booting the microkernel:\n", .{});
+}
 
 fn user_fn() void {
     while (true) {}
 }
 
+const SegmentInfo = struct {
+    start: u64,
+    pagesLen: u64,
+};
+
+// Returns the address of the free segment that contains the most pages
+fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
+    // get the current memory map
+    var memoryMap: [*]uefi.tables.MemoryDescriptor = undefined;
+    var memoryMapSize: usize = 0;
+    var memoryMapKey: usize = undefined;
+    var descriptorSize: usize = undefined;
+    var descriptorVersion: u32 = undefined;
+
+    while (uefi.Status.BufferTooSmall == bootServices.getMemoryMap(&memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion)) {
+        if (uefi.Status.Success != bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap))) {
+            tty.panic("Could not access the memory map.", .{});
+        }
+    }
+
+    serial.writeText("\n\n");
+
+    const conventionalMemory = uefi.tables.MemoryType.ConventionalMemory;
+    const bootServicesCode = uefi.tables.MemoryType.BootServicesCode;
+    const bootServicesData = uefi.tables.MemoryType.BootServicesData;
+
+    var mem: ?u64 = null;
+    var maxPages: u64 = 0;
+
+    var i: u64 = 0;
+    var currStart: ?u64 = null;
+    var currEnd: u64 = 0;
+    while (i < memoryMapSize / descriptorSize) : (i += 1) {
+        const desc = memoryMap[i];
+        const end = desc.physical_start + desc.number_of_pages * 4096;
+        if (desc.type != conventionalMemory and desc.type != bootServicesCode and desc.type != bootServicesData) {
+            continue;
+        }
+
+        if (currStart) |start| {
+            if (currEnd == desc.physical_start) {
+                currEnd = end;
+            } else {
+                const pages = (currEnd - start) / 4096;
+                serial.printf("{x:0>16}..{x:0>16} : {} (0x{x}) pages\n", .{ start, currEnd, pages, pages });
+                currStart = desc.physical_start;
+                currEnd = end;
+
+                if (maxPages < pages) {
+                    mem = currStart;
+                    maxPages = pages;
+                }
+            }
+        } else {
+            currStart = desc.physical_start;
+            currEnd = end;
+        }
+    }
+    if (currStart) |start| {
+        const pages = (currEnd - start) / 4096;
+        serial.printf("{x:0>16}..{x:0>16} : {} ({x}) pages\n", .{ start, currEnd, pages, pages });
+
+        if (maxPages < pages) {
+            mem = currStart;
+            maxPages = pages;
+        }
+    }
+
+    serial.writeText("\n\n");
+
+    if (bootServices.exitBootServices(uefi.handle, memoryMapKey) != uefi.Status.Success) {
+        tty.panic("Failed to exit boot services.", .{});
+    }
+
+    if (mem) |addr| {
+        return SegmentInfo{ .start = addr, .pagesLen = maxPages };
+        //pmem.registerAvailableMem(addr);
+    } else {
+        tty.panic("Not enough memory.", .{});
+    }
+}
+
+pub fn dumpState(comptime format: []const u8, args: anytype) void {
+    tty.serialPrint("  >   " ++ format, args);
+}
+
 pub fn main() void {
-    // FIXME(Ryan): complete the Graphics & TTY kernel impl to enable scrolling.
-    // Then reuse it for everything else.
     uefiMemory.initialize();
     uefiConsole.initialize();
 
@@ -39,52 +124,48 @@ pub fn main() void {
     uefiConsole.puts("User serial console initialized.\r\n");
     graphics.initialize();
     uefiConsole.puts("UEFI GOP initialized.\r\n");
+    tty.initialize();
+    tty.serialPrint("TTY initialized\n", .{});
 
     // UEFI-specific initialization
     const bootServices = uefi.system_table.boot_services.?;
-    uefiSystemInfo.dumpAndAssertPlatformState();
-    uefiConsole.puts("UEFI memory and debug console setup.\r\n");
+    tty.serialPrint("Platform state:\n", .{});
+    uefiSystemInfo.dumpAndAssertPlatformState(dumpState);
+    tty.serialPrint("UEFI memory and debug console setup.\n", .{});
 
     scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
-        serial.ppanic("Failed to initialize scheduler: {}", .{err});
+        tty.panic("Failed to initialize scheduler: {}", .{err});
     };
-    // scheduler.self_test_init(uefiAllocator.systemAllocator) catch |err| {
-    //     serial.ppanic("Failed to initialize scheduler tests: {}", .{err});
-    // };
-    tty.initialize(uefiAllocator.systemAllocator);
 
-    tty.serialPrint("Platform preinitialization...\n", .{});
+    tty.step("Platform preinitialization...", .{});
     platform.preinitialize(uefiAllocator.systemAllocator);
+    tty.stepOK();
     tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
-    uefiMemory.memoryMap.refresh(); // Refresh the memory map before the exit.
-    var retCode = bootServices.exitBootServices(uefi.handle, uefiMemory.memoryMap.key);
-    if (retCode != uefi.Status.Success) {
-        return;
-    }
+    const longestSegment = doExitBootServices(bootServices);
+
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
     tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
 
-    tty.serialPrint("Platform initialization...\n", .{});
-    platform.initialize();
-    tty.serialPrint("Platform initialized.\n", .{});
+    // graphics.clear(Color.Black);
+    os_banner();
 
-    // scheduler.selfTest();
+    tty.step("Platform initialization", .{});
+    var kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
+    tty.stepOK();
 
-    // TODO: graphics tests work well only when scheduler is disabled, or at low frequency. Seems a graphic buffer issue (?). Currently, freq = 19.
-    // graphics.selfTest();
-    // tty.serialPrint("Graphics subsystem self test completed.\n", .{});
-    // tty.selfTest();
+    ipc.initialize(&kernelAllocator) catch |err| {
+        serial.ppanic("Failed to initialize IPC: {}", .{err});
+    };
+
+    bootscreen.bootVideo();
 
     // runtimeServices.set_virtual_address_map();
 
-    //mem.initialize(MEMORY_OFFSET);
-    //timer.initialize(100);
-    //scheduler.initialize();
-
-    //tty.colorPrint(Color.LightBlue, "\nLoading the servers (driverspace):\n");
+    tty.colorPrint(Color.LightBlue, null, "\nLoading the servers (driverspace):\n", .{});
 
     // The OS is now running.
+    // liftoff to a user init task, pid 1.
     //var user_stack: [1024]u64 = undefined;
     //platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
     platform.hlt();
