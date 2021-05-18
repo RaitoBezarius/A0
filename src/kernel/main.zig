@@ -63,7 +63,7 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
     while (i < memoryMapSize / descriptorSize) : (i += 1) {
         const desc = memoryMap[i];
         const end = desc.physical_start + desc.number_of_pages * 4096;
-        if (desc.type != conventionalMemory and desc.type != bootServicesCode and desc.type != bootServicesData) {
+        if (desc.type != conventionalMemory) {
             continue;
         }
 
@@ -165,7 +165,7 @@ pub fn main() void {
     //tty.colorPrint(Color.LightBlue, "\nLoading the servers (driverspace):\n");
 
     // The OS is now running.
-    var user_stack: [1024]u64 = undefined;
+    var user_stack: [1024]u64 = [_]u64{0} ** 1024;
     platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
     platform.hlt();
 }

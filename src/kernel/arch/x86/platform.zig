@@ -94,16 +94,18 @@ pub fn initializeTask(task: *Task, entrypoint: usize, allocator: *Allocator) All
 }
 
 pub fn liftoff(userspace_fun_ptr: *const fn () void, userspace_stack: *u64) void {
+    serial.printf("Liftoff to ptr: {x}, stack: {x}\n", .{ userspace_fun_ptr, userspace_stack });
     // Get a new IP/SP and setup eflags.
     // Then sysret!
     asm volatile (
-        \\mov %[userspace_fun_ptr], %%rdi
-        \\mov %[userspace_stack], %%rsi
+        \\mov %[userspace_fun_ptr], %%rcx
+        \\mov %[userspace_stack], %%rsp
         \\mov $0x0202, %%r11
         \\sysretq
         :
         : [userspace_fun_ptr] "r" (userspace_fun_ptr),
           [userspace_stack] "r" (userspace_stack)
+        : "rsp", "rcx", "r11"
     );
 }
 
