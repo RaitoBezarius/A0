@@ -25,7 +25,7 @@ pub const panic = serial.panic;
 //}
 
 fn user_fn() void {
-    while (true) {}
+    asm volatile ("hlt");
 }
 
 const SegmentInfo = struct {
@@ -110,6 +110,12 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
     }
 }
 
+fn getRSP() u64 {
+    return asm volatile ("mov %%rsp, %[result]"
+        : [result] "=r" (-> u64)
+    );
+}
+
 pub fn main() void {
     // FIXME(Ryan): complete the Graphics & TTY kernel impl to enable scrolling.
     // Then reuse it for everything else.
@@ -119,6 +125,7 @@ pub fn main() void {
     uefiConsole.puts("UEFI console initialized.\r\n");
     serial.initialize(serial.SERIAL_COM1, 2);
     uefiConsole.puts("User serial console initialized.\r\n");
+    serial.printf("sp: {x}\n", .{getRSP()});
     graphics.initialize();
     uefiConsole.puts("UEFI GOP initialized.\r\n");
 
@@ -129,6 +136,7 @@ pub fn main() void {
     tty.initialize(uefiAllocator.systemAllocator);
 
     tty.serialPrint("Platform preinitialization...\n", .{});
+    serial.printf("sp: {x}\n", .{getRSP()});
     platform.preinitialize();
     tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 

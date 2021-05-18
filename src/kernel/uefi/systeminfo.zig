@@ -59,6 +59,6 @@ pub fn dumpAndAssertPlatformState() void {
         platform.hang();
     }
 
-    var buf: [4096]u8 = undefined;
+    var buf: [128]u8 = undefined;
     uefiConsole.printf(buf[0..], "Loaded image: base={x}\r\n", .{@ptrToInt(loadedImage.image_base)});
 }

@@ -225,7 +225,6 @@ pub fn isLongModeEnabled() bool {
 pub const STAR_MSR = 0xC0000081;
 pub fn enableSystemCallExtensions() void {
     serial.writeText("System call extensions will be enabled...\n");
-    var buf: [4096]u8 = undefined;
     var eferMSR = readMSR(EFER_MSR);
     writeMSR(EFER_MSR, (eferMSR | 0x1)); // Enable SCE bit.
     var starMSR = readMSR(STAR_MSR);

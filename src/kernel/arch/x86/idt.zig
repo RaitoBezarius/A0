@@ -55,7 +55,6 @@ var idt: [256]IDTEntry = undefined;
 const idtr = IDTRegister{ .limit = @as(u16, @sizeOf(@TypeOf(idt))), .base = &idt };
 
 pub fn setGate(n: u8, flags: IDTFlags, offset: fn () callconv(.C) void) void {
-    var buf: [4096]u8 = undefined;
     const intOffset = @ptrToInt(offset);
 
     idt[n].setOffset(intOffset);
