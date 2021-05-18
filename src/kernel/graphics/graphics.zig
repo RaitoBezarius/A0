@@ -1,6 +1,6 @@
 const uefi = @import("std").os.uefi;
 // const L = @import("std").unicode.utf8ToUtf16LeStringLiteral;
-const platform = @import("../arch/x86/platform.zig");
+const platform = @import("../platform.zig");
 const fmt = @import("std").fmt;
 const psf2 = @import("../fonts/psf2.zig");
 const Color = @import("color.zig");
@@ -30,7 +30,7 @@ pub const TextColor = packed struct {
     bg: u32,
 };
 
-fn pixelFromColor(c: u32) Pixel {
+pub fn pixelFromColor(c: u32) Pixel {
     return Pixel{
         .blue = Color.B(c),
         .green = Color.G(c),
@@ -214,6 +214,30 @@ pub fn fromRawPixels(x: u32, y: u32, w: u32, h: u32, raw: [*]const Pixel) void {
             rawPtr += 1;
         }
         linePtr += fb.pixelsPerScanLine;
+    }
+}
+
+pub fn fromRawPixelsScale(x: u32, y: u32, w: u32, h: u32, raw: [*]const Pixel, ratio: u32) void {
+    if (!fb.valid) @panic("Invalid framebuffer!\n");
+    const lastLine = y + h;
+    const lastCol = x + w * ratio;
+    var linePtr = fb.basePtr + (fb.pixelsPerScanLine * y);
+    var iLine = y;
+
+    while (iLine < lastLine) : (iLine += 1) {
+        var repeat_h: u32 = 0;
+        while (repeat_h < ratio) : (repeat_h += 1) {
+            var rawLinePtr = raw + iLine * w;
+            var iCol: u32 = x;
+            while (iCol < lastCol) : (iCol += ratio) {
+                var repeat_w: u32 = 0;
+                while (repeat_w < ratio) : (repeat_w += 1) {
+                    linePtr[iCol + repeat_w] = rawLinePtr[0];
+                }
+                rawLinePtr += 1;
+            }
+            linePtr += fb.pixelsPerScanLine;
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 const std = @import("std");
 const TaskMod = @import("task.zig");
-const Task = TaskMod.Task;
-const TaskState = TaskMod.TaskState;
+pub const Task = TaskMod.Task;
+pub const TaskState = TaskMod.TaskState;
 const platform = @import("platform.zig");
 const serial = @import("debug/serial.zig");
 const tty = @import("graphics/tty.zig");
@@ -27,7 +27,7 @@ var soonTimeouts: TaskQueue = TaskQueue{}; // Sorted
 var lateTimeouts: TaskQueue = TaskQueue{}; // Unsorted
 var farFutureTimeouts: TaskQueue = TaskQueue{}; // Unsorted
 
-fn idle() void {
+fn idle() void { // TODO(w) ?
     // platform.ioWait();
     platform.hlt();
 }
@@ -118,6 +118,10 @@ fn removeTaskTimeout(task_node: *TaskQueue.Node) void {
     }
 }
 
+pub fn getElapsedTime() u64 {
+    return elapsed_ns;
+}
+
 // *** Scheduler ***
 
 fn forceUnschedule(task_node: *TaskQueue.Node) void {
@@ -151,10 +155,10 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
 
             if (next_task.state == TaskState.Runnable) {
                 //serial.printf("picking task pid: {}, stack ptr: 0x{x}\n", .{ next_task.pid, next_task.stack_pointer });
-                tasks[current_task.priority].prepend(current_task_node);
+                if (current_task.scheduled) {
+                    tasks[current_task.priority].prepend(current_task_node);
+                }
 
-                // next_task_node.prev = null;
-                // next_task_node.next = null;
                 current_task_node = next_task_node;
                 current_task = next_task;
                 break; // Ok, new task scheduled

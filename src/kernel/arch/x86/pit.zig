@@ -139,7 +139,7 @@ pub fn initialize() void {
     // defer tty.stepOK();
 
     // const freq: u32 = 10000;
-    const freq = 10000; // TODO(w): choose the best frequency
+    const freq = 500; // TODO(w): choose the best frequency
 
     setupCounter(CounterSelect.Counter0, freq, OCW_MODE_SQUARE_WAVE_GENERATOR | OCW_BINARY_COUNT_BINARY) catch |e| {
         serial.ppanic("Invalid frequency: {d}\n", .{freq});

@@ -135,6 +135,9 @@ pub fn main() void {
     scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
         tty.panic("Failed to initialize scheduler: {}", .{err});
     };
+    bootscreen.bootVideo(uefiAllocator.systemAllocator) catch |err| {
+        tty.panic("Failed to initialize boot video: {}", .{err});
+    };
 
     tty.step("Platform preinitialization...", .{});
     platform.preinitialize(uefiAllocator.systemAllocator);
@@ -152,8 +155,6 @@ pub fn main() void {
     tty.step("Platform initialization", .{});
     const kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
     tty.stepOK();
-
-    bootscreen.bootVideo();
 
     // runtimeServices.set_virtual_address_map();
 
