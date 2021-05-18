@@ -223,8 +223,8 @@ pub fn isLongModeEnabled() bool {
 
 pub const STAR_MSR = 0xC0000081;
 pub fn enableSystemCallExtensions() void {
-    tty.step("Activating the system call extensions", .{});
-    defer tty.stepOK();
+    var step = tty.step("Activating the system call extensions", .{});
+    defer step.ok();
     var buf: [4096]u8 = undefined;
     var eferMSR = readMSR(EFER_MSR);
     writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.

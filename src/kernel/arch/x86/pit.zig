@@ -135,8 +135,8 @@ pub fn getFrequency() u32 {
 }
 
 pub fn initialize() void {
-    // tty.step("PIT initialization", .{});
-    // defer tty.stepOK();
+    var step = tty.step("PIT initialization", .{});
+    defer step.ok();
 
     // const freq: u32 = 10000;
     const freq = 500; // TODO(w): choose the best frequency

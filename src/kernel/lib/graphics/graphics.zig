@@ -38,6 +38,7 @@ var fb = Framebuffer{
     .basePtr = undefined,
     .valid = false,
 };
+pub var totalScroll: u64 = 0;
 
 pub fn initialize(frameBuffer: Framebuffer) void {
     fb = frameBuffer;
@@ -193,6 +194,7 @@ pub fn getCursorPos() Position {
 
 pub fn scroll(px: u32) void {
     if (!fb.valid) @panic("Invalid framebuffer!\n");
+    totalScroll += @as(u64, px);
     var lineSize = fb.width;
     var prevLinePtr = fb.basePtr;
     var linePtr = fb.basePtr + px * lineSize;

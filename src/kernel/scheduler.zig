@@ -211,8 +211,8 @@ pub fn scheduleBack(task_node: *TaskQueue.Node) void {
 }
 
 pub fn initialize(kStackStart: usize, kStackSize: usize, allocator: *Allocator) Allocator.Error!void {
-    tty.step("Scheduler initialization...", .{});
-    defer tty.stepOK();
+    var step = tty.step("Scheduler initialization...", .{});
+    defer step.ok();
 
     var iTaskQueue: u32 = 0;
     while (iTaskQueue < tasks.len) : (iTaskQueue += 1) {

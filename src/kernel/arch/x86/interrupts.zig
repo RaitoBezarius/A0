@@ -4,7 +4,6 @@ const isr = @import("isr.zig");
 const x86 = @import("platform.zig");
 const sti = x86.sti;
 const hlt = x86.hlt;
-const serial = @import("../../debug/serial.zig");
 const tty = @import("../../lib/graphics/tty.zig");
 const kernelGraphics = @import("../../uefi/graphics.zig");
 const PIC1_CMD = 0x20;
@@ -115,11 +114,11 @@ fn remapPIC() void {
 }
 
 pub fn initialize() void {
-    serial.writeText("Remapping PICs...\n");
+    kernelGraphics.serialPrint("Remapping PICs...\n", .{});
     remapPIC();
-    serial.writeText("PICs remapped.\n");
+    kernelGraphics.serialPrint("PICs remapped.\n", .{});
     isr.install_exceptions();
-    serial.writeText("Exceptions installed.\n");
+    kernelGraphics.serialPrint("Exceptions installed.\n", .{});
     isr.install_irqs();
-    serial.writeText("IRQs installed.\n");
+    kernelGraphics.serialPrint("IRQs installed.\n", .{});
 }

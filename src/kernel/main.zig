@@ -140,9 +140,9 @@ pub fn main() void {
         kernelGraphics.panic("Failed to initialize boot video: {}", .{err});
     };
 
-    tty.step("Platform preinitialization", .{});
+    var plt_pre_step = tty.step("Platform preinitialization", .{});
     platform.preinitialize(uefiAllocator.systemAllocator);
-    tty.stepOK();
+    plt_pre_step.ok();
     kernelGraphics.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
     const longestSegment = doExitBootServices(bootServices);
@@ -153,9 +153,9 @@ pub fn main() void {
     // graphics.clear(Color.Black);
     os_banner();
 
-    tty.step("Platform initialization", .{});
+    var plt_step = tty.step("Platform initialization", .{});
     const kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
-    tty.stepOK();
+    plt_step.ok();
 
     // runtimeServices.set_virtual_address_map();
 

@@ -137,14 +137,25 @@ pub fn alignCenter(strLen: usize) void {
     alignLeft((state.nbCols - strLen) / 2);
 }
 
-pub fn step(comptime format: []const u8, args: anytype) void {
+pub const Step = struct {
+    y: i32,
+    scroll: u64,
+
+    pub fn ok(self: *Step) void {
+        const strOk = " [ OK ]\n";
+        var cursor = graphics.getCursorPos();
+        graphics.setCursorCoords(0, self.y + @intCast(i32, graphics.totalScroll - self.scroll));
+        alignRight(strOk.len);
+        colorPrint(Color.LightGreen, null, strOk, .{});
+        graphics.setCursorCoords(cursor.x, cursor.y);
+    }
+};
+
+pub fn step(comptime format: []const u8, args: anytype) Step {
     colorPrint(Color.LightBlue, null, ">> ", .{});
-    print(format ++ "...", args);
-}
-
-pub fn stepOK() void {
-    const ok = " [ OK ]\n";
-
-    alignRight(ok.len);
-    colorPrint(Color.LightGreen, null, ok, .{});
+    print(format ++ "...\n", args);
+    return Step{
+        .y = graphics.getCursorPos().y - @intCast(i32, font.height),
+        .scroll = graphics.totalScroll,
+    };
 }

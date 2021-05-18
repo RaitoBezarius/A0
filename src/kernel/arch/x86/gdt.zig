@@ -1,4 +1,5 @@
-const serial = @import("../../debug/serial.zig");
+const tty = @import("../../lib/graphics/tty.zig");
+const kernelGraphics = @import("../../uefi/graphics.zig");
 
 pub const KERNEL_CODE = 0x08;
 pub const KERNEL_DATA = 0x10;
@@ -113,9 +114,10 @@ pub fn readGDT() GDTRegister {
 }
 
 pub fn initialize() void {
-    serial.writeText("gdt: GDT initialization...\n");
+    var step = tty.step("GDT initialization...", .{});
+    defer step.ok();
     @memset(@ptrCast([*]u8, &tss), 0, @sizeOf(TSS));
-    serial.writeText("gdt: TSS zeroed.\n");
+    kernelGraphics.serialPrint("gdt: TSS zeroed.\n", .{});
 
     // Initialize TSS.
     const tssBase = @ptrToInt(&tss);
@@ -125,11 +127,11 @@ pub fn initialize() void {
     gdt[TSS_LOW / @sizeOf(GDTEntry)] = lowTSSEntry;
     gdt[TSS_HIGH / @sizeOf(GDTEntry)] = highTSSEntry;
 
-    serial.writeText("gdt: TSS ready.\n");
+    kernelGraphics.serialPrint("gdt: TSS ready.\n", .{});
 
     // Load the TSS segment.
     loadGDTAndTSS(&gdtr);
-    serial.writeText("gdt: GDT and TSS loaded.\n");
+    kernelGraphics.serialPrint("gdt: GDT and TSS loaded.\n", .{});
 
     runtimeTests();
 }
@@ -149,5 +151,5 @@ fn rt_properlyLoadedGDT() void {
         @panic("Fatal error: GDT base is not properly set, loading failure.\n");
     }
 
-    serial.writeText("Runtime tests: GDT loading successful.\n");
+    kernelGraphics.serialPrint("Runtime tests: GDT loading successful.\n", .{});
 }
