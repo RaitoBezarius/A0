@@ -4,8 +4,7 @@ const gdt = @import("gdt.zig");
 const interrupts = @import("interrupts.zig");
 const isr = @import("isr.zig");
 const serial = @import("../../debug/serial.zig");
-const tty = @import("../../graphics/tty.zig");
-
+const tty = @import("../../lib/graphics/tty.zig");
 pub const IDTFlags = struct {
     gate_type: u4,
     storage_segment: u1,

@@ -1,9 +1,9 @@
 const serial = @import("../../debug/serial.zig");
 const platform = @import("platform.zig");
 const pmem = @import("pmem.zig");
-const tty = @import("../../graphics/tty.zig");
-
-const panic = tty.panic;
+const tty = @import("../../lib/graphics/tty.zig");
+const kernelGraphics = @import("../../uefi/graphics.zig");
+const panic = kernelGraphics.panic;
 
 var buf: [128]u8 = undefined;
 

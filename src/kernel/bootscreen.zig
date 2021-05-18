@@ -1,10 +1,10 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const graphics = @import("graphics.zig");
-const Color = @import("color.zig");
-const serial = @import("../debug/serial.zig");
-const platform = @import("../platform.zig");
-const scheduler = @import("../scheduler.zig");
+const graphics = @import("lib/graphics/graphics.zig");
+const Color = @import("lib/graphics/color.zig");
+const serial = @import("debug/serial.zig");
+const platform = @import("platform.zig");
+const scheduler = @import("scheduler.zig");
 const Pixel = graphics.Pixel;
 
 const rawBootVideo = @embedFile("bad_apple_1.yuv");

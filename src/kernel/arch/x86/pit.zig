@@ -1,7 +1,7 @@
 const irq = @import("interrupts.zig");
 const platform = @import("platform.zig");
 const serial = @import("../../debug/serial.zig");
-const tty = @import("../../graphics/tty.zig");
+const tty = @import("../../lib/graphics/tty.zig");
 const scheduler = @import("../../scheduler.zig");
 
 const IRQ_PIT = 0x00;

@@ -1,7 +1,7 @@
 const layout = @import("layout.zig");
-const tty = @import("../../graphics/tty.zig");
-
-const panic = tty.panic;
+const tty = @import("../../lib/graphics/tty.zig");
+const kernelGraphics = @import("../../uefi/graphics.zig");
+const panic = kernelGraphics.panic;
 
 var mem_base: u64 = undefined;
 var available: [layout.REQUIRED_PAGES_COUNT]bool = init: {

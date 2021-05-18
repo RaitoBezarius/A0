@@ -1,12 +1,6 @@
-const uefi = @import("std").os.uefi;
-// const L = @import("std").unicode.utf8ToUtf16LeStringLiteral;
-const platform = @import("../platform.zig");
 const fmt = @import("std").fmt;
-const psf2 = @import("../fonts/psf2.zig");
+const psf2 = @import("fonts/psf2.zig");
 const Color = @import("color.zig");
-const uefiConsole = @import("../uefi/console.zig");
-
-var graphicsOutputProtocol: ?*uefi.protocols.GraphicsOutputProtocol = undefined;
 
 pub const Pixel = packed struct {
     blue: u8,
@@ -30,6 +24,26 @@ pub const TextColor = packed struct {
     bg: u32,
 };
 
+const ScreenState = struct {
+    cursor: Position,
+    textColor: TextColor,
+    font: [*]const u8,
+};
+
+pub const Framebuffer = struct { width: u32, height: u32, basePtr: [*]Pixel, valid: bool };
+
+var fb = Framebuffer{
+    .width = 0,
+    .height = 0,
+    .basePtr = undefined,
+    .valid = false,
+};
+
+pub fn initialize(frameBuffer: Framebuffer) void {
+    fb = frameBuffer;
+    clear(Color.Black);
+}
+
 pub fn pixelFromColor(c: u32) Pixel {
     return Pixel{
         .blue = Color.B(c),
@@ -37,22 +51,6 @@ pub fn pixelFromColor(c: u32) Pixel {
         .red = Color.R(c),
     };
 }
-
-const Framebuffer = struct { width: u32, height: u32, pixelsPerScanLine: u32, basePtr: [*]Pixel, valid: bool };
-
-var fb: Framebuffer = Framebuffer{
-    .width = 0,
-    .height = 0,
-    .pixelsPerScanLine = 0,
-    .basePtr = undefined,
-    .valid = false,
-};
-
-const ScreenState = struct {
-    cursor: Position,
-    textColor: TextColor,
-    font: [*]const u8,
-};
 
 var state = ScreenState{
     .cursor = Position{
@@ -65,92 +63,6 @@ var state = ScreenState{
     },
     .font = psf2.defaultFont,
 };
-
-fn setupMode(index: u32) void {
-    _ = graphicsOutputProtocol.?.setMode(index);
-
-    const info = graphicsOutputProtocol.?.mode.info;
-    fb.width = info.horizontal_resolution;
-    fb.height = info.vertical_resolution;
-    fb.pixelsPerScanLine = info.pixels_per_scan_line;
-    fb.basePtr = @intToPtr([*]Pixel, graphicsOutputProtocol.?.mode.frame_buffer_base);
-    fb.valid = true;
-
-    // Put the cursor at the center.
-    state.cursor.x = @divTrunc(@bitCast(i32, fb.width), 2);
-    state.cursor.y = @divTrunc(@bitCast(i32, fb.height), 2);
-}
-
-const MOST_APPROPRIATE_W = 960;
-const MOST_APPROPRIATE_H = 720;
-fn selectBestMode() void {
-    var bestMode = .{ graphicsOutputProtocol.?.mode.mode, graphicsOutputProtocol.?.mode.info };
-    var i: u8 = 0;
-    while (i < graphicsOutputProtocol.?.mode.max_mode) : (i += 1) {
-        var info: *uefi.protocols.GraphicsOutputModeInformation = undefined;
-        var info_size: usize = undefined;
-        _ = graphicsOutputProtocol.?.queryMode(i, &info_size, &info);
-
-        if (info.horizontal_resolution > MOST_APPROPRIATE_W and
-            info.vertical_resolution > MOST_APPROPRIATE_H)
-        {
-            continue;
-        }
-
-        if (info.horizontal_resolution == MOST_APPROPRIATE_W and
-            info.vertical_resolution == MOST_APPROPRIATE_H)
-        {
-            bestMode.@"0" = i;
-            bestMode.@"1" = info;
-            break;
-        }
-
-        if (info.vertical_resolution > bestMode.@"1".vertical_resolution) {
-            bestMode.@"0" = i;
-            bestMode.@"1" = info;
-        }
-    }
-
-    setupMode(bestMode.@"0");
-}
-
-pub fn initialize() void {
-    const boot_services = uefi.system_table.boot_services.?;
-    var buf: [100]u8 = undefined;
-
-    if (boot_services.locateProtocol(&uefi.protocols.GraphicsOutputProtocol.guid, null, @ptrCast(*?*c_void, &graphicsOutputProtocol)) == uefi.Status.Success) {
-        uefiConsole.puts("[LOW-LEVEL DEBUG] Graphics output protocol is supported!\r\n");
-
-        var i: u8 = 0;
-        while (i < graphicsOutputProtocol.?.mode.max_mode) : (i += 1) {
-            var info: *uefi.protocols.GraphicsOutputModeInformation = undefined;
-            var info_size: usize = undefined;
-            _ = graphicsOutputProtocol.?.queryMode(i, &info_size, &info);
-
-            uefiConsole.printf(buf[0..], "    mode {} = {}x{}\r\n", .{
-                i,                        info.horizontal_resolution,
-                info.vertical_resolution,
-            });
-        }
-
-        uefiConsole.printf(buf[0..], "    current mode = {}\r\n", .{graphicsOutputProtocol.?.mode.mode});
-
-        // Move to larger mode.
-        selectBestMode();
-        // uefiConsole.disable();
-
-        const curMode = graphicsOutputProtocol.?.mode.mode;
-        var info: *uefi.protocols.GraphicsOutputModeInformation = undefined;
-        var info_size: usize = undefined;
-        _ = graphicsOutputProtocol.?.queryMode(curMode, &info_size, &info);
-        uefiConsole.printf(buf[0..], "    current mode = {}x{}x{}\r\n", .{ info.horizontal_resolution, info.vertical_resolution, info.pixels_per_scan_line });
-
-        clear(Color.Black);
-        uefiConsole.puts("Screen cleared.\r\n");
-    } else {
-        @panic("Graphics output protocol is NOT supported, failing.\n");
-    }
-}
 
 pub fn clear(color: u32) void {
     drawRect(0, 0, fb.width, fb.height, color);
@@ -179,7 +91,7 @@ pub fn getDimensions() Dimensions {
 
 pub fn setPixel(x: u32, y: u32, rgb: u32) void {
     if (!fb.valid) @panic("Invalid framebuffer!");
-    fb.basePtr[(x + y * fb.pixelsPerScanLine)] = pixelFromColor(rgb);
+    fb.basePtr[(x + y * fb.width)] = pixelFromColor(rgb);
 }
 
 pub fn drawRect(x: u32, y: u32, w: u32, h: u32, rgb: u32) void {
@@ -187,7 +99,7 @@ pub fn drawRect(x: u32, y: u32, w: u32, h: u32, rgb: u32) void {
     const pixelColor = pixelFromColor(rgb);
     const lastLine = y + h;
     const lastCol = x + w;
-    var linePtr = fb.basePtr + (fb.pixelsPerScanLine * y);
+    var linePtr = fb.basePtr + (fb.width * y);
     var iLine = y;
 
     while (iLine < lastLine) : (iLine += 1) {
@@ -195,7 +107,7 @@ pub fn drawRect(x: u32, y: u32, w: u32, h: u32, rgb: u32) void {
         while (iCol < lastCol) : (iCol += 1) {
             linePtr[iCol] = pixelColor;
         }
-        linePtr += fb.pixelsPerScanLine;
+        linePtr += fb.width;
     }
 }
 
@@ -203,7 +115,7 @@ pub fn fromRawPixels(x: u32, y: u32, w: u32, h: u32, raw: [*]const Pixel) void {
     if (!fb.valid) @panic("Invalid framebuffer!\n");
     const lastLine = y + h;
     const lastCol = x + w;
-    var linePtr = fb.basePtr + (fb.pixelsPerScanLine * y);
+    var linePtr = fb.basePtr + (fb.width * y);
     var rawPtr = raw;
     var iLine = y;
 
@@ -213,7 +125,7 @@ pub fn fromRawPixels(x: u32, y: u32, w: u32, h: u32, raw: [*]const Pixel) void {
             linePtr[iCol] = rawPtr[0];
             rawPtr += 1;
         }
-        linePtr += fb.pixelsPerScanLine;
+        linePtr += fb.width;
     }
 }
 
@@ -221,7 +133,7 @@ pub fn fromRawPixelsScale(x: u32, y: u32, w: u32, h: u32, raw: [*]const Pixel, r
     if (!fb.valid) @panic("Invalid framebuffer!\n");
     const lastLine = y + h;
     const lastCol = x + w * ratio;
-    var linePtr = fb.basePtr + (fb.pixelsPerScanLine * y);
+    var linePtr = fb.basePtr + (fb.width * y);
     var iLine = y;
 
     while (iLine < lastLine) : (iLine += 1) {
@@ -236,7 +148,7 @@ pub fn fromRawPixelsScale(x: u32, y: u32, w: u32, h: u32, raw: [*]const Pixel, r
                 }
                 rawLinePtr += 1;
             }
-            linePtr += fb.pixelsPerScanLine;
+            linePtr += fb.width;
         }
     }
 }
@@ -246,7 +158,7 @@ pub fn drawChar(char: u8, fg: u32, bg: u32) void {
     // Draw a character at the current cursor.
 
     var font = psf2.asFont(state.font);
-    psf2.renderChar(font, @ptrCast([*]u32, @alignCast(32, fb.basePtr)), char, state.cursor.x, state.cursor.y, fg, bg, fb.pixelsPerScanLine);
+    psf2.renderChar(font, @ptrCast([*]u32, @alignCast(32, fb.basePtr)), char, state.cursor.x, state.cursor.y, fg, bg, fb.width);
 
     state.cursor.x += @bitCast(i32, font.width);
     if (state.cursor.x > fb.width - font.width) {
@@ -281,7 +193,7 @@ pub fn getCursorPos() Position {
 
 pub fn scroll(px: u32) void {
     if (!fb.valid) @panic("Invalid framebuffer!\n");
-    var lineSize = fb.pixelsPerScanLine;
+    var lineSize = fb.width;
     var prevLinePtr = fb.basePtr;
     var linePtr = fb.basePtr + px * lineSize;
     var iLine: u32 = px;
@@ -306,8 +218,6 @@ pub fn scroll(px: u32) void {
     }
 }
 
-const img = [_]Pixel{ pixelFromColor(Color.Magenta), pixelFromColor(Color.Magenta), pixelFromColor(Color.Magenta), pixelFromColor(Color.Red), pixelFromColor(Color.Green), pixelFromColor(Color.Red), pixelFromColor(Color.Blue), pixelFromColor(Color.Blue), pixelFromColor(Color.Blue) };
-
 pub fn selfTest() void {
     clear(Color.Black);
     clear(Color.Green);
@@ -315,6 +225,4 @@ pub fn selfTest() void {
     setPixel(0, 0, Color.Cyan);
     setTextColor(Color.Red, Color.Blue);
     drawText("Hello there!");
-
-    fromRawPixels(100, 100, 3, 3, &img);
 }

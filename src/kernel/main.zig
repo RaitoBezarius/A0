@@ -6,13 +6,14 @@ const uefiMemory = @import("uefi/memory.zig");
 const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
 
-const graphics = @import("graphics/graphics.zig");
-const Color = @import("graphics/color.zig");
-const tty = @import("graphics/tty.zig");
+const Color = @import("lib/graphics/color.zig");
+const graphics = @import("lib/graphics/graphics.zig");
+const kernelGraphics = @import("uefi/graphics.zig");
+const tty = @import("lib/graphics/tty.zig");
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");
 const serial = @import("debug/serial.zig");
-const bootscreen = @import("graphics/bootscreen.zig");
+const bootscreen = @import("bootscreen.zig");
 
 // Default panic handler for Zig.
 pub const panic = serial.panic;
@@ -44,7 +45,7 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
 
     while (uefi.Status.BufferTooSmall == bootServices.getMemoryMap(&memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion)) {
         if (uefi.Status.Success != bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap))) {
-            tty.panic("Could not access the memory map.", .{});
+            kernelGraphics.panic("Could not access the memory map.", .{});
         }
     }
 
@@ -99,19 +100,19 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
     serial.writeText("\n\n");
 
     if (bootServices.exitBootServices(uefi.handle, memoryMapKey) != uefi.Status.Success) {
-        tty.panic("Failed to exit boot services.", .{});
+        kernelGraphics.panic("Failed to exit boot services.", .{});
     }
 
     if (mem) |addr| {
         return SegmentInfo{ .start = addr, .pagesLen = maxPages };
         //pmem.registerAvailableMem(addr);
     } else {
-        tty.panic("Not enough memory.", .{});
+        kernelGraphics.panic("Not enough memory.", .{});
     }
 }
 
 pub fn dumpState(comptime format: []const u8, args: anytype) void {
-    tty.serialPrint("  >   " ++ format, args);
+    kernelGraphics.serialPrint("  >   " ++ format, args);
 }
 
 pub fn main() void {
@@ -121,33 +122,33 @@ pub fn main() void {
     uefiConsole.puts("UEFI console initialized.\r\n");
     serial.initialize(serial.SERIAL_COM1, 2);
     uefiConsole.puts("User serial console initialized.\r\n");
-    graphics.initialize();
+    kernelGraphics.initialize();
     uefiConsole.puts("UEFI GOP initialized.\r\n");
     tty.initialize();
-    tty.serialPrint("TTY initialized\n", .{});
+    kernelGraphics.serialPrint("TTY initialized\n", .{});
 
     // UEFI-specific initialization
     const bootServices = uefi.system_table.boot_services.?;
-    tty.serialPrint("Platform state:\n", .{});
+    kernelGraphics.serialPrint("Platform state:\n", .{});
     uefiSystemInfo.dumpAndAssertPlatformState(dumpState);
-    tty.serialPrint("UEFI memory and debug console setup.\n", .{});
+    kernelGraphics.serialPrint("UEFI memory and debug console setup.\n", .{});
 
     scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
-        tty.panic("Failed to initialize scheduler: {}", .{err});
+        kernelGraphics.panic("Failed to initialize scheduler: {}", .{err});
     };
     bootscreen.bootVideo(uefiAllocator.systemAllocator) catch |err| {
-        tty.panic("Failed to initialize boot video: {}", .{err});
+        kernelGraphics.panic("Failed to initialize boot video: {}", .{err});
     };
 
-    tty.step("Platform preinitialization...", .{});
+    tty.step("Platform preinitialization", .{});
     platform.preinitialize(uefiAllocator.systemAllocator);
     tty.stepOK();
-    tty.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
+    kernelGraphics.serialPrint("Platform preinitialized, can now exit boot services.\n", .{});
 
     const longestSegment = doExitBootServices(bootServices);
 
     uefiConsole.disable(); // conOut is a boot service, so it's not available anymore.
-    tty.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
+    kernelGraphics.serialPrint("Boot services exitted. UEFI console is now unavailable.\n", .{});
 
     // graphics.clear(Color.Black);
     os_banner();
@@ -214,6 +215,6 @@ fn doSomeTest() void {
             echiquier[i][j] = false;
         }
     }
-    tty.serialPrint("Solutions: {}\n\n\n\n\n\n\n\n\n\n\n\n\n\n", .{solve(0, 0, 0)});
-    tty.serialPrint("========== END", .{});
+    kernelGraphics.serialPrint("Solutions: {}\n\n\n\n\n\n\n\n\n\n\n\n\n\n", .{solve(0, 0, 0)});
+    kernelGraphics.serialPrint("========== END", .{});
 }
