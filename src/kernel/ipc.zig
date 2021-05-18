@@ -1,7 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const A0 = @import("lib").A0;
-const tty = @import("graphics/tty.zig");
+const tty = @import("lib/graphics/tty.zig");
 const TaskMod = @import("task.zig");
 const Task = TaskMod.Task;
 const TaskState = TaskMod.TaskState;
@@ -114,8 +114,8 @@ pub fn deliverMessage(message: Message) void {
 }
 
 pub fn initialize(allocator: *Allocator) Allocator.Error!void {
-    tty.step("IPC primitives", .{});
+    var step = tty.step("IPC primitives", .{});
+    defer step.ok();
     kAllocator = allocator;
     ports = HashMap(u16, *Mailbox).init(allocator);
-    defer tty.stepOK();
 }
