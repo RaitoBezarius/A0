@@ -4,9 +4,8 @@ const isr = @import("isr.zig");
 const x86 = @import("platform.zig");
 const sti = x86.sti;
 const hlt = x86.hlt;
-const serial = @import("../../debug/serial.zig");
-const tty = @import("../../graphics/tty.zig");
-
+const tty = @import("../../lib/graphics/tty.zig");
+const kernelGraphics = @import("../../uefi/graphics.zig");
 const PIC1_CMD = 0x20;
 const PIC1_DATA = 0x21;
 const PIC2_CMD = 0xA0;
@@ -31,9 +30,9 @@ fn unhandled(context: *x86.Context) usize {
     const n = context.interrupt_n;
 
     if (n >= IRQ_0) {
-        tty.panic("unhandled IRQ number: {d}", .{n - IRQ_0});
+        kernelGraphics.panic("unhandled IRQ number: {d}", .{n - IRQ_0});
     } else {
-        tty.panic("unhandled exception number: {d}", .{n});
+        kernelGraphics.panic("unhandled exception number: {d}", .{n});
     }
 
     return @ptrToInt(context);
@@ -115,11 +114,11 @@ fn remapPIC() void {
 }
 
 pub fn initialize() void {
-    serial.writeText("Remapping PICs...\n");
+    kernelGraphics.serialPrint("Remapping PICs...\n", .{});
     remapPIC();
-    serial.writeText("PICs remapped.\n");
+    kernelGraphics.serialPrint("PICs remapped.\n", .{});
     isr.install_exceptions();
-    serial.writeText("Exceptions installed.\n");
+    kernelGraphics.serialPrint("Exceptions installed.\n", .{});
     isr.install_irqs();
-    serial.writeText("IRQs installed.\n");
+    kernelGraphics.serialPrint("IRQs installed.\n", .{});
 }

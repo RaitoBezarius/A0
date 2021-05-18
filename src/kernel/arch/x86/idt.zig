@@ -4,7 +4,8 @@ const gdt = @import("gdt.zig");
 const interrupts = @import("interrupts.zig");
 const isr = @import("isr.zig");
 const serial = @import("../../debug/serial.zig");
-const tty = @import("../../graphics/tty.zig");
+const tty = @import("../../lib/graphics/tty.zig");
+const kernelGraphics = @import("../../uefi/graphics.zig");
 
 pub const IDTFlags = struct {
     gate_type: u4,
@@ -83,7 +84,8 @@ fn sidt() IDTRegister {
 }
 
 pub fn initialize() void {
-    serial.writeText("IDT initializing...\n");
+    var step = tty.step("IDT initialisation", .{});
+    defer step.ok();
 
     interrupts.initialize();
     interrupts.register(0, divide_by_zero);
@@ -91,23 +93,21 @@ pub fn initialize() void {
     interrupts.register(14, page_fault_handler);
     lidt(@ptrToInt(&idtr));
 
-    serial.writeText("IDT initialized.\n");
-
     runtimeTests();
 }
 
 fn divide_by_zero(ctx: *platform.Context) usize {
-    serial.writeText("divide by zero!\n");
+    kernelGraphics.serialPrint("divide by zero!\n", .{});
     return @ptrToInt(ctx);
 }
 
 fn debug_trap(ctx: *platform.Context) usize {
-    serial.writeText("debug fault/trap\n");
+    kernelGraphics.serialPrint("debug fault/trap\n", .{});
     return @ptrToInt(ctx);
 }
 
 fn page_fault_handler(ctx: *platform.Context) usize {
-    serial.writeText("page fault handler\n");
+    kernelGraphics.serialPrint("page fault handler\n", .{});
     return @ptrToInt(ctx);
 }
 
@@ -122,7 +122,7 @@ fn rt_loadedIDTProperly() void {
         @panic("Fatal error: IDT base is not loaded properly");
     }
 
-    serial.writeText("Runtime tests: IDT loading tested succesfully.\n");
+    kernelGraphics.serialPrint("Runtime tests: IDT loading tested succesfully.\n", .{});
 }
 
 fn runtimeTests() void {

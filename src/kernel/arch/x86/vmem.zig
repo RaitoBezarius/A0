@@ -1,9 +1,9 @@
 const serial = @import("../../debug/serial.zig");
 const platform = @import("platform.zig");
 const pmem = @import("pmem.zig");
-const tty = @import("../../graphics/tty.zig");
-
-const panic = tty.panic;
+const tty = @import("../../lib/graphics/tty.zig");
+const kernelGraphics = @import("../../uefi/graphics.zig");
+const panic = kernelGraphics.panic;
 
 var buf: [128]u8 = undefined;
 
@@ -125,7 +125,7 @@ pub const PageTableEntry = packed struct {
     }
 
     pub fn debug(self: *PageTableEntry) void {
-        serial.printf(buf[0..], ".present={}; .RW={}; .US={}; physical address = {x}\n", .{ self.present, self.RW, self.US, self.get_phy_addr() });
+        serial.printf(".present={}; .RW={}; .US={}; physical address = {x}\n", .{ self.present, self.RW, self.US, self.get_phy_addr() });
     }
 };
 
@@ -160,7 +160,7 @@ pub const LinearAddress = packed struct {
     }
 
     pub fn debug(self: *const LinearAddress) void {
-        serial.printf(buf[0..], ".reserved={}; .pml5={}; .pml4={}; .pdpt={}; .pd={}; .pt={}; .offset={}\n", .{ self.reserved, self.pml5, self.pml4, self.pdpt, self.pd, self.pt, self.offset });
+        serial.printf(".reserved={}; .pml5={}; .pml4={}; .pdpt={}; .pd={}; .pt={}; .offset={}\n", .{ self.reserved, self.pml5, self.pml4, self.pdpt, self.pd, self.pt, self.offset });
     }
 };
 
@@ -400,7 +400,7 @@ pub fn initialize() void {
     if (cr4_la57) {
         panic("Unexpected 5-level paging at UEFI handoff.", .{});
     } else {
-        serial.writeText("4-level paging, as expected.\n");
+        kernelGraphics.serialPrint("4-level paging, as expected.\n", .{});
     }
 
     var old_pml4 = @intToPtr(*[512]PageTableEntry, platform.readCR("3") & ~@intCast(u64, 0xFFF));
@@ -418,5 +418,5 @@ pub fn initialize() void {
     // Temporarily mark all pages as user-readable
     nuclear_option();
 
-    serial.writeText("We now have control over the virtual memory !\n");
+    kernelGraphics.serialPrint("We now have control over the virtual memory !\n", .{});
 }

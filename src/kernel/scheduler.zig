@@ -5,7 +5,8 @@ pub const Task = TaskMod.Task;
 pub const TaskState = TaskMod.TaskState;
 const platform = @import("platform.zig");
 const serial = @import("debug/serial.zig");
-const tty = @import("graphics/tty.zig");
+const tty = @import("lib/graphics/tty.zig");
+const kernelGraphics = @import("uefi/graphics.zig");
 const Allocator = std.mem.Allocator;
 const TailQueue = std.TailQueue;
 const TaskQueue = TailQueue(*Task);
@@ -179,7 +180,7 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
             //serial.writeText("No new task to be scheduled\n");
             break; // Keep the current task if no task with the same priority is scheduled
         } else if (curTaskPriority >= tasks.len) {
-            tty.panic("No task can be scheduled, missing idle task!", .{});
+            kernelGraphics.panic("No task can be scheduled, missing idle task!", .{});
         } else {
             curTaskPriority += 1;
         }
@@ -219,8 +220,8 @@ pub fn scheduleBack(task_node: *TaskQueue.Node) void {
 }
 
 pub fn initialize(kStackStart: usize, kStackSize: usize, allocator: *Allocator) Allocator.Error!void {
-    tty.step("Scheduler initialization...", .{});
-    defer tty.stepOK();
+    var step = tty.step("Scheduler initialization...", .{});
+    defer step.ok();
 
     var iTaskQueue: u32 = 0;
     while (iTaskQueue < tasks.len) : (iTaskQueue += 1) {
