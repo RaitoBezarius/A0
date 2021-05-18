@@ -133,6 +133,13 @@ pub fn main() void {
     uefiSystemInfo.dumpAndAssertPlatformState(dumpState);
     tty.serialPrint("UEFI memory and debug console setup.\n", .{});
 
+    scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
+        tty.panic("Failed to initialize scheduler: {}", .{err});
+    };
+    bootscreen.bootVideo(uefiAllocator.systemAllocator) catch |err| {
+        tty.panic("Failed to initialize boot video: {}", .{err});
+    };
+
     tty.step("Platform preinitialization...", .{});
     platform.preinitialize();
     tty.stepOK();
@@ -154,15 +161,9 @@ pub fn main() void {
     var kernelAllocator = platform.initialize(longestSegment.start, longestSegment.pagesLen);
     tty.stepOK();
 
-    scheduler.initialize(@frameAddress(), @frameSize(main), kernelAllocator) catch |err| {
-        serial.ppanic("Failed to initialize scheduler: {}", .{err});
-    };
-
     ipc.initialize(kernelAllocator) catch |err| {
         serial.ppanic("Failed to initialize IPC: {}", .{err});
     };
-
-    bootscreen.bootVideo();
 
     // runtimeServices.set_virtual_address_map();
 

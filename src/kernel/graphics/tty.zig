@@ -123,7 +123,7 @@ const ScreenWritter = struct {
 var screenWritter = ScreenWritter{};
 
 pub fn print(comptime format: []const u8, args: anytype) void {
-    fmt.format(screenWritter.writer(), format, args) catch |err| {
+    fmt.format(screenWritter.writer(), "\n" ++ format, args) catch |err| {
         serial.ppanic("Failed print: {}", .{err});
     };
 }
