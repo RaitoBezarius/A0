@@ -13,6 +13,7 @@ const VIDEO_H: u32 = 360;
 const VIDEO_DATA_LINE = VIDEO_W / 8;
 const BYTES_PER_FRAME = VIDEO_DATA_LINE * VIDEO_H;
 const N_FRAMES = rawBootVideo.len / BYTES_PER_FRAME;
+const SLOW_FRAMES_START: u32 = 380;
 const FRAME_INTERVAL: u64 = 33300000;
 
 const WHITE_PIXEL = graphics.pixelFromColor(Color.White);
@@ -38,6 +39,20 @@ fn readFrameFromMonow(rawPtr: [*]const u8, iFrame: u32) void {
 }
 
 var boot_task: *scheduler.Task = undefined;
+var nextFrame: u64 = undefined;
+
+fn showFrame(x_offset: u32, y_offset: u32, ratio: u32, iFrame: u32) void {
+    nextFrame += FRAME_INTERVAL;
+    if (iFrame >= SLOW_FRAMES_START) {
+        nextFrame += 3 * FRAME_INTERVAL;
+    }
+    readFrameFromMonow(@ptrCast([*]const u8, rawBootVideo), iFrame);
+    graphics.fromRawPixelsScale(x_offset, y_offset, VIDEO_W, VIDEO_H, rawPixelsPointer, ratio);
+
+    while (scheduler.getElapsedTime() < nextFrame) {
+        platform.ioWait(); // TODO(w) : sleep
+    }
+}
 
 fn runBootVideo() void {
     var screen = graphics.getDimensions();
@@ -50,15 +65,19 @@ fn runBootVideo() void {
     var y_offset = (screen.height - VIDEO_H * ratio) / 2;
 
     var iFrame: u32 = 0;
-    var nextFrame = scheduler.getElapsedTime();
+    nextFrame = scheduler.getElapsedTime();
     graphics.clear(Color.Black);
     while (iFrame < N_FRAMES) : (iFrame += 1) {
-        nextFrame += FRAME_INTERVAL;
-        readFrameFromMonow(@ptrCast([*]const u8, rawBootVideo), iFrame);
-        graphics.fromRawPixelsScale(x_offset, y_offset, VIDEO_W, VIDEO_H, rawPixelsPointer, ratio);
-
-        while (scheduler.getElapsedTime() < nextFrame) {
-            platform.ioWait(); // TODO(w) : sleep
+        showFrame(x_offset, y_offset, ratio, iFrame);
+    }
+    while (true) {
+        var step: u32 = 1;
+        while (step < 10) : (step += 1) {
+            showFrame(x_offset, y_offset, ratio, iFrame - step - 1);
+        }
+        step -= 1;
+        while (step > 0) : (step -= 1) {
+            showFrame(x_offset, y_offset, ratio, iFrame - step);
         }
     }
     boot_task.state = scheduler.TaskState.Stopped;
