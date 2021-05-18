@@ -4,8 +4,6 @@ const pmem = @import("pmem.zig");
 
 const panic = serial.panic;
 
-var buf: [128]u8 = undefined;
-
 // (MAXPHYADDR is at most 52)
 
 // Specification : IDM 3-4-30 (with MAXPHYADDR = 52).
@@ -124,7 +122,7 @@ pub const PageTableEntry = packed struct {
     }
 
     pub fn debug(self: *PageTableEntry) void {
-        serial.printf(buf[0..], ".present={}; .RW={}; .US={}; physical address = {x}\n", .{ self.present, self.RW, self.US, self.get_phy_addr() });
+        serial.printf(".present={}; .RW={}; .US={}; .XD={} physical address = {x}\n", .{ self.present, self.RW, self.US, self.XD, self.get_phy_addr() });
     }
 };
 
@@ -159,7 +157,7 @@ pub const LinearAddress = packed struct {
     }
 
     pub fn debug(self: *const LinearAddress) void {
-        serial.printf(buf[0..], ".reserved={}; .pml5={}; .pml4={}; .pdpt={}; .pd={}; .pt={}; .offset={}\n", .{ self.reserved, self.pml5, self.pml4, self.pdpt, self.pd, self.pt, self.offset });
+        serial.printf(".reserved={}; .pml5={}; .pml4={}; .pdpt={}; .pd={}; .pt={}; .offset={}\n", .{ self.reserved, self.pml5, self.pml4, self.pdpt, self.pd, self.pt, self.offset });
     }
 };
 
@@ -369,7 +367,7 @@ fn nuclear_option() void {
                     }
 
                     pt_entry.RW = true;
-                    pd_entry.US = true;
+                    pt_entry.US = true;
                 }
             }
         }
@@ -417,6 +415,7 @@ pub fn initialize() void {
 
     // Temporarily mark all pages as user-readable
     nuclear_option();
+
 
     serial.writeText("We now have control over the virtual memory !\n");
 }
