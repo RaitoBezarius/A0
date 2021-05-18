@@ -42,7 +42,6 @@ pub fn preinitialize() void {
     cli(); // Disable all interrupts.
     gdt.initialize();
     idt.initialize();
-    // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
     // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
@@ -57,6 +56,7 @@ pub fn initialize(freeSegAddr: u64, freeSegLen: u64) *Allocator {
     vmem.initialize();
     pit.initialize();
     sti();
+    enableSystemCallExtensions();
     // TODO: timer.initialize();
     // rtc.initialize();
     KernelAllocator.initialize(vmem.LinearAddress.four_level_addr(256, 0, 1, 0, 0));
@@ -225,7 +225,7 @@ pub fn enableSystemCallExtensions() void {
     serial.writeText("System call extensions will be enabled...\n");
     var buf: [4096]u8 = undefined;
     var eferMSR = readMSR(EFER_MSR);
-    writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.
+    writeMSR(EFER_MSR, (eferMSR | 0x1)); // Enable SCE bit.
     var starMSR = readMSR(STAR_MSR);
     writeMSR(STAR_MSR, 0x00180008); // GDT segment.
     serial.writeText("System call extensions enabled.\n");

@@ -106,7 +106,7 @@ fn debug_trap(ctx: *platform.Context) usize {
 }
 
 fn page_fault_handler(ctx: *platform.Context) usize {
-    serial.writeText("page fault handler\n");
+    //serial.writeText("page fault handler\n");
     return @ptrToInt(ctx);
 }
 

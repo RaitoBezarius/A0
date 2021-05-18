@@ -29,43 +29,43 @@ fn user_fn() void {
 }
 
 const SegmentInfo = struct {
-    start : u64,
-    pagesLen : u64,
+    start: u64,
+    pagesLen: u64,
 };
 
 // Returns the address of the free segment that contains the most pages
-fn doExitBootServices(bootServices : *uefi.tables.BootServices) SegmentInfo {
+fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
     // get the current memory map
     var memoryMap: [*]uefi.tables.MemoryDescriptor = undefined;
     var memoryMapSize: usize = 0;
     var memoryMapKey: usize = undefined;
     var descriptorSize: usize = undefined;
     var descriptorVersion: u32 = undefined;
-    
-    while (uefi.Status.BufferTooSmall == bootServices.getMemoryMap(
-            &memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion)
-    ) {
-        if (uefi.Status.Success != bootServices.allocatePool(
-                uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap)
-        )) { panic("Could not access the memory map.", null); }
+
+    while (uefi.Status.BufferTooSmall == bootServices.getMemoryMap(&memoryMapSize, memoryMap, &memoryMapKey, &descriptorSize, &descriptorVersion)) {
+        if (uefi.Status.Success != bootServices.allocatePool(uefi.tables.MemoryType.BootServicesData, memoryMapSize, @ptrCast(*[*]align(8) u8, &memoryMap))) {
+            panic("Could not access the memory map.", null);
+        }
     }
-    
+
     serial.writeText("\n\n");
 
     const conventionalMemory = uefi.tables.MemoryType.ConventionalMemory;
     const bootServicesCode = uefi.tables.MemoryType.BootServicesCode;
     const bootServicesData = uefi.tables.MemoryType.BootServicesData;
 
-    var mem : ?u64 = null;
-    var maxPages : u64 = 0;
+    var mem: ?u64 = null;
+    var maxPages: u64 = 0;
 
-    var i : u64 = 0;
+    var i: u64 = 0;
     var currStart: ?u64 = null;
     var currEnd: u64 = 0;
     while (i < memoryMapSize / descriptorSize) : (i += 1) {
         const desc = memoryMap[i];
         const end = desc.physical_start + desc.number_of_pages * 4096;
-        if (desc.type != conventionalMemory and desc.type != bootServicesCode and desc.type != bootServicesData) { continue; }
+        if (desc.type != conventionalMemory and desc.type != bootServicesCode and desc.type != bootServicesData) {
+            continue;
+        }
 
         if (currStart) |start| {
             if (currEnd == desc.physical_start) {
@@ -103,7 +103,7 @@ fn doExitBootServices(bootServices : *uefi.tables.BootServices) SegmentInfo {
     }
 
     if (mem) |addr| {
-        return SegmentInfo { .start = addr, .pagesLen = maxPages };
+        return SegmentInfo{ .start = addr, .pagesLen = maxPages };
         //pmem.registerAvailableMem(addr);
     } else {
         panic("Not enough memory.", null);
@@ -165,8 +165,8 @@ pub fn main() void {
     //tty.colorPrint(Color.LightBlue, "\nLoading the servers (driverspace):\n");
 
     // The OS is now running.
-    //var user_stack: [1024]u64 = undefined;
-    //platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
+    var user_stack: [1024]u64 = undefined;
+    platform.liftoff(&user_fn, &user_stack[1023]); // Go to userspace.
     platform.hlt();
 }
 
