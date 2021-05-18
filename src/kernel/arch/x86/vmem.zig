@@ -1,7 +1,7 @@
 const serial = @import("../../debug/serial.zig");
 const platform = @import("platform.zig");
 const pmem = @import("pmem.zig");
-const tty = @import("../../lib/graphics/tty.zig");
+const tty = @import("lib").graphics.Tty;
 const kernelGraphics = @import("../../uefi/graphics.zig");
 const panic = kernelGraphics.panic;
 

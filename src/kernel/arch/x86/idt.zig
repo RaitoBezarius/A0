@@ -4,7 +4,7 @@ const gdt = @import("gdt.zig");
 const interrupts = @import("interrupts.zig");
 const isr = @import("isr.zig");
 const serial = @import("../../debug/serial.zig");
-const tty = @import("../../lib/graphics/tty.zig");
+const tty = @import("lib").graphics.Tty;
 const kernelGraphics = @import("../../uefi/graphics.zig");
 
 pub const IDTFlags = struct {

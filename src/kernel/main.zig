@@ -6,9 +6,9 @@ const uefiMemory = @import("uefi/memory.zig");
 const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
 
-const Color = @import("lib/graphics/color.zig");
+const Color = @import("lib").graphics.Color;
 const kernelGraphics = @import("uefi/graphics.zig");
-const tty = @import("lib/graphics/tty.zig");
+const tty = @import("lib").graphics.Tty;
 const platform = @import("platform.zig");
 const scheduler = @import("scheduler.zig");
 const ipc = @import("ipc.zig");

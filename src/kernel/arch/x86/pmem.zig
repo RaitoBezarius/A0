@@ -1,5 +1,5 @@
 const layout = @import("layout.zig");
-const tty = @import("../../lib/graphics/tty.zig");
+const tty = @import("lib").graphics.Tty;
 const kernelGraphics = @import("../../uefi/graphics.zig");
 const panic = kernelGraphics.panic;
 

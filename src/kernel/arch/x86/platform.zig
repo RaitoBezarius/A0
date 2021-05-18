@@ -6,7 +6,7 @@ const pmem = @import("pmem.zig");
 const vmem = @import("vmem.zig");
 const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
-const tty = @import("../../lib/graphics/tty.zig");
+const tty = @import("lib").graphics.Tty;
 const kernelGraphics = @import("../../uefi/graphics.zig");
 const Task = @import("../../task.zig").Task;
 const Allocator = std.mem.Allocator;
@@ -226,7 +226,6 @@ pub const STAR_MSR = 0xC0000081;
 pub fn enableSystemCallExtensions() void {
     var step = tty.step("Activating the system call extensions", .{});
     defer step.ok();
-    var buf: [4096]u8 = undefined;
     var eferMSR = readMSR(EFER_MSR);
     writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.
     var starMSR = readMSR(STAR_MSR);

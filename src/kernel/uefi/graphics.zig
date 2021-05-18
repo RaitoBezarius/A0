@@ -1,7 +1,7 @@
 const std = @import("std");
-const graphics = @import("../lib/graphics/graphics.zig");
-const tty = @import("../lib/graphics/tty.zig");
-const Color = @import("../lib/graphics/color.zig");
+const graphics = @import("lib").graphics.Graphics;
+const tty = @import("lib").graphics.Tty;
+const Color = @import("lib").graphics.Color;
 const uefi = @import("std").os.uefi;
 const uefiConsole = @import("../uefi/console.zig");
 const platform = @import("../arch/x86/platform.zig"); // TODO(w)

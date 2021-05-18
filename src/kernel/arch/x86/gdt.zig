@@ -1,4 +1,4 @@
-const tty = @import("../../lib/graphics/tty.zig");
+const tty = @import("lib").graphics.Tty;
 const kernelGraphics = @import("../../uefi/graphics.zig");
 
 pub const KERNEL_CODE = 0x08;
