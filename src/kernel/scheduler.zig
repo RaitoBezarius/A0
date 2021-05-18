@@ -138,7 +138,6 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
     elapsed_ns += platform.getClockInterval();
     rescheduleTimeouts();
 
-    serial.printf("current task sp: 0x{x}\n", .{current_task.stack_pointer});
     var curStopped = false;
     if (current_task.state != TaskState.Runnable) {
         curStopped = true;
@@ -149,7 +148,6 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
             const next_task = next_task_node.data;
 
             if (next_task.state == TaskState.Runnable) {
-                serial.printf("picking task pid: {}, stack ptr: 0x{x}\n", .{ next_task.pid, next_task.stack_pointer });
                 tasks[current_task.priority].prepend(current_task_node);
 
                 // next_task_node.prev = null;
@@ -162,7 +160,6 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
                 next_task.scheduled = false;
             }
         } else if (!curStopped and curTaskPriority == current_task.priority) {
-            serial.writeText("No new task to be scheduled\n");
             break; // Keep the current task if no task with the same priority is scheduled
         } else if (curTaskPriority >= tasks.len) {
             serial.ppanic("No task can be scheduled, missing idle task!", .{});
@@ -171,7 +168,6 @@ pub fn pickNextTask(ctx: *platform.Context) usize {
         }
     }
 
-    serial.writeText("handing control to selected task\n");
     return current_task.stack_pointer;
 }
 

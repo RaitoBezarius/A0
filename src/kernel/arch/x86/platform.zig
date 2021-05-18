@@ -4,6 +4,7 @@ const idt = @import("idt.zig");
 const vmem = @import("vmem.zig");
 const pmem = @import("pmem.zig");
 const pit = @import("pit.zig");
+const cmos = @import("cmos.zig");
 const serial = @import("../../debug/serial.zig");
 const Task = @import("../../task.zig").Task;
 const Allocator = std.mem.Allocator;
@@ -35,6 +36,16 @@ pub const Context = extern struct {
 // Structure holding general purpose registers
 // Valid wrt to isrCommon.
 pub const Registers = extern struct { r11: u64, r10: u64, r9: u64, r8: u64, rcx: u64, rdx: u64, rsi: u64, rdi: u64, rax: u64, rbp: u64 };
+
+pub const Date = packed struct {
+    second: u8,
+    minute: u8,
+    hour: u8,
+    day: u8,
+    month: u8,
+    year: u8,
+    century: u8,
+};
 
 pub fn preinitialize(allocator: *std.mem.Allocator) void {
     cli(); // Disable all interrupts.
@@ -109,6 +120,14 @@ pub fn cli() void {
 
 pub fn sti() void {
     asm volatile ("sti");
+}
+
+pub fn NMI_enable() void {
+    out(0x70, @as(u8, in(u8, 0x70) & 0x7F));
+}
+
+pub fn NMI_disable() void {
+    out(0x70, @as(u8, in(u8, 0x70) | 0x80));
 }
 
 pub fn hang() noreturn {
@@ -269,3 +288,5 @@ pub fn in(comptime Type: type, port: u16) Type {
 pub fn getClockInterval() u64 {
     return pit.time_ns;
 }
+
+pub const get_date = cmos.read_date;
