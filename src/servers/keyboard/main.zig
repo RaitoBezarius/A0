@@ -56,7 +56,7 @@ fn handleRead(reader: MailboxId) void {
     }
 }
 
-pub fn main() void {
+export fn _start() void {
     //A0.subscribeIRQ(1, &Keyboard);
 
     var message = Message.from(Keyboard);
