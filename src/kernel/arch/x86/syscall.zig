@@ -1,4 +1,4 @@
-const tty = @import("../../graphics/tty.zig");
+const tty = @import("lib").graphics.Tty;
 const gdt = @import("gdt.zig");
 const x86 = @import("platform.zig");
 const base = @import("../../syscalls/index.zig");
@@ -11,8 +11,8 @@ pub const FastSyscallContext = extern struct { registers: x86.Registers, // GP r
 syscall_number: u32 };
 
 fn enableSystemCallExtensions(kernel_entrypoint_handler: fn () callconv(.C) usize) void {
-    tty.step("Activating the system call extensions", .{});
-    defer tty.stepOK();
+    var sc_call_step = tty.step("Activating the system call extensions", .{});
+    defer sc_call_step.ok();
 
     var eferMSR = x86.readMSR(x86.EFER_MSR);
     x86.writeMSR(x86.EFER_MSR, (eferMSR | 0x1)); // Enable SCE bit.

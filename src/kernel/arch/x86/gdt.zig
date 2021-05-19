@@ -3,6 +3,7 @@ const kernelGraphics = @import("../../uefi/graphics.zig");
 
 pub const KERNEL_CODE = 0x08;
 pub const KERNEL_DATA = 0x10;
+pub const USER_BASE = 0x18;
 pub const USER_CODE = 0x20;
 pub const USER_DATA = 0x28;
 pub const OVMF_DATA = 0x30;
