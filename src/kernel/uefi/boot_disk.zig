@@ -21,6 +21,17 @@ pub fn enumerateAllFSProtocols(bootServices: *uefi.tables.BootServices) *uefi.pr
     return fs;
 }
 
+fn truncateToUtf8(buffer: *[256]u8, utf16: [*:0]const u8) [*:0]const u8 {
+    var i: u64 = 0;
+    while (true) : (i += 1) {
+        buffer[i] = utf16[2*i];
+        if (utf16[2*i] == 0) {
+            break;
+        }
+    }
+    return @ptrCast([*:0]u8, buffer);
+}
+
 fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtocol) void {
     var bufferSize: usize = @sizeOf(uefi.protocols.FileInfo) + 260;
     var buffer: [*]align(8) u8 = undefined;
@@ -28,46 +39,65 @@ fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtoco
         @panic("Failed to allocate a pool for directory information!\n");
     }
 
-    // TODO(thejohncrafter)
-    // Read the root directory, it provides [*]uefi.protocols.FileProtocol.FileInfo
-    // bufferSize + 260 as fat32 has 256 chars filename limits. This should prevents BufferTooSmall returns.
-    // If it's a directory, recursively listFiles inside of it.
-    // If it's a file, filter out non ELF files, read the first bytes of it to find out
-    // if it has ELF64 magic header.
-    // Once it's indeed an ELF file, enqueue it inside the structure of servers to load.
-    // Destroy the rest.
-   
     var fileInfoGuid align(8) = uefi.protocols.FileProtocol.guid;
-    _ = root.getInfo(&fileInfoGuid, &bufferSize, buffer);
+    if (root.getInfo(&fileInfoGuid, &bufferSize, buffer) != uefi.Status.Success) {
+        @panic("Failed to acquire info on directory");
+    }
+
     var info = @ptrCast(*uefi.protocols.FileInfo, buffer);
-    tty.print("File name : \"{s}\"\n", .{ @ptrCast([*:0]const u8, info.getFileName()) });
+    const fileName = @ptrCast([*:0]const u8, info.getFileName());
     const isDirectory: u64 = 0x10;
+    
+    var entryBufferSize: usize = @sizeOf(uefi.protocols.FileInfo) + 260;
+    var entryBuffer: [*]align(8) u8 = undefined;
+    if (bs.allocatePool(uefi.tables.MemoryType.LoaderData, entryBufferSize, &entryBuffer) != uefi.Status.Success) {
+        @panic("Failed to allocate a pool for directory information!\n");
+    }
 
     if (info.attribute & isDirectory != 0) {
-        tty.print("It's a directory !\n", .{});
+        while (true) {
+            var currentSize = entryBufferSize;
+            if (root.read(&currentSize, entryBuffer) != uefi.Status.Success) {
+                @panic("Failed to read directory");
+            }
 
-        var entryBufferSize: usize = @sizeOf(uefi.protocols.FileInfo) + 260;
-        var entryBuffer: [*]align(8) u8 = undefined;
-        if (bs.allocatePool(uefi.tables.MemoryType.LoaderData, entryBufferSize, &entryBuffer) != uefi.Status.Success) {
-            @panic("Failed to allocate a pool for directory information!\n");
+            if (currentSize == 0) {
+                break;
+            }
+
+            var entryInfo = @ptrCast(*uefi.protocols.FileInfo, entryBuffer);
+            const entryName = @ptrCast([*:0]const u8, entryInfo.getFileName());
+
+            var buf: [256]u8 = undefined;
+            const printableName = truncateToUtf8(&buf, entryName);
+
+            if (entryName[0] == '.') {
+                continue;
+            }
+
+            var entry: *uefi.protocols.FileProtocol = undefined;
+            // Open in read mode, attributes are ignored in this case.
+            if (root.open(&entry, entryInfo.getFileName(), 0x1, 0) != uefi.Status.Success) {
+                @panic("Failed to open the entry");
+            }
+
+            listFilesRec(bs, entry);
         }
-
-        if (root.read(&entryBufferSize, entryBuffer) != uefi.Status.Success) {
-            @panic("Failed to read directory");
-        }
-
-        var entryInfo = @ptrCast(*uefi.protocols.FileInfo, buffer);
-        tty.print("Entry name : \"{s}\"\n", .{ @ptrCast([*:0]const u8, entryInfo.getFileName()) });
-
-        var entry: *uefi.protocols.FileProtocol = undefined;
-        // Open in read mode, attributes are ignored in this case.
-        if (root.open(&entry, entryInfo.getFileName(), 0x1, 0) != uefi.Status.Success) {
-            @panic("Failed to open the entry");
-        }
-
-        listFilesRec(bs, entry);
     } else {
-        tty.print("\tIt's a file !\n", .{});
+        var bufSize: usize = 4;
+        var buf = [_]u8{ 0, 0, 0, 0 };
+        if (root.read(&bufSize, &buf) != uefi.Status.Success) {
+            @panic("Failed to read file");
+        }
+
+        if (buf[0] == 0x7f and buf[1] == 'E' and buf[2] == 'L' and buf[3] == 'F') {
+            var nameBuf: [256]u8 = undefined;
+            const printableName = truncateToUtf8(&nameBuf, fileName);
+
+            tty.print("Driver file : {s}\n", .{ printableName });
+
+            // TODO : Build a list of FileProtocols
+        }
     }
 }
 
