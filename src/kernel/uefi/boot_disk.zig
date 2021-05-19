@@ -30,8 +30,8 @@ pub fn enumerateAllFSProtocols(bootServices: *uefi.tables.BootServices) *uefi.pr
 fn truncateToUtf8(buffer: *[256]u8, utf16: [*:0]const u8) [*:0]const u8 {
     var i: u64 = 0;
     while (true) : (i += 1) {
-        buffer[i] = utf16[2*i];
-        if (utf16[2*i] == 0) {
+        buffer[i] = utf16[2 * i];
+        if (utf16[2 * i] == 0) {
             break;
         }
     }
@@ -53,7 +53,7 @@ fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtoco
     var info = @ptrCast(*uefi.protocols.FileInfo, buffer);
     const fileName = @ptrCast([*:0]const u8, info.getFileName());
     const isDirectory: u64 = 0x10;
-    
+
     var entryBufferSize: usize = @sizeOf(uefi.protocols.FileInfo) + 260;
     var entryBuffer: [*]align(8) u8 = undefined;
     if (bs.allocatePool(uefi.tables.MemoryType.LoaderData, entryBufferSize, &entryBuffer) != uefi.Status.Success) {
@@ -100,7 +100,7 @@ fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtoco
             var nameBuf: [256]u8 = undefined;
             const printableName = truncateToUtf8(&nameBuf, fileName);
 
-            tty.print("Driver file : {s}\n", .{ printableName });
+            tty.print("Driver file : {s}\n", .{printableName});
 
             var contentBufferSize: usize = info.file_size + @sizeOf(SinglyLinkedList(DriverImageInfo));
             var contentBuffer: [*]align(8) u8 = undefined;
@@ -115,7 +115,7 @@ fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtoco
             }
 
             var node = @ptrCast(*SinglyLinkedList(DriverImageInfo).Node, contentBuffer);
-            node.* = SinglyLinkedList(DriverImageInfo).Node{ .data = DriverImageInfo { .len = info.file_size, .img = imgBuffer } };
+            node.* = SinglyLinkedList(DriverImageInfo).Node{ .data = DriverImageInfo{ .len = info.file_size, .img = imgBuffer } };
             list.prepend(node);
         }
     }
