@@ -63,7 +63,7 @@ fn doExitBootServices(bootServices: *uefi.tables.BootServices) SegmentInfo {
     while (i < memoryMapSize / descriptorSize) : (i += 1) {
         const desc = memoryMap[i];
         const end = desc.physical_start + desc.number_of_pages * 4096;
-        if (desc.type != conventionalMemory and desc.type != bootServicesCode and desc.type != bootServicesData) {
+        if (desc.type != conventionalMemory) {
             continue;
         }
 
