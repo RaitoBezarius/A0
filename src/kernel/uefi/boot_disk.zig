@@ -1,6 +1,12 @@
 const std = @import("std");
 const uefi = std.os.uefi;
+const SinglyLinkedList = @import("std").SinglyLinkedList;
 const tty = @import("lib").graphics.Tty;
+
+const DriverImageInfo = struct {
+    len: u64,
+    img: [*]u8,
+};
 
 pub fn enumerateAllFSProtocols(bootServices: *uefi.tables.BootServices) *uefi.protocols.SimpleFileSystemProtocol {
     var handleCount: usize = 0;
@@ -32,7 +38,7 @@ fn truncateToUtf8(buffer: *[256]u8, utf16: [*:0]const u8) [*:0]const u8 {
     return @ptrCast([*:0]u8, buffer);
 }
 
-fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtocol) void {
+fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtocol, list: *SinglyLinkedList(DriverImageInfo)) void {
     var bufferSize: usize = @sizeOf(uefi.protocols.FileInfo) + 260;
     var buffer: [*]align(8) u8 = undefined;
     if (bs.allocatePool(uefi.tables.MemoryType.LoaderData, bufferSize, &buffer) != uefi.Status.Success) {
@@ -81,7 +87,7 @@ fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtoco
                 @panic("Failed to open the entry");
             }
 
-            listFilesRec(bs, entry);
+            listFilesRec(bs, entry, list);
         }
     } else {
         var bufSize: usize = 4;
@@ -96,12 +102,26 @@ fn listFilesRec(bs: *uefi.tables.BootServices, root: *uefi.protocols.FileProtoco
 
             tty.print("Driver file : {s}\n", .{ printableName });
 
-            // TODO : Build a list of FileProtocols
+            var contentBufferSize: usize = info.file_size + @sizeOf(SinglyLinkedList(DriverImageInfo));
+            var contentBuffer: [*]align(8) u8 = undefined;
+            if (bs.allocatePool(uefi.tables.MemoryType.LoaderData, contentBufferSize, &contentBuffer) != uefi.Status.Success) {
+                @panic("Failed to allocate memory for the driver image !\n");
+            }
+
+            var imgSize = info.file_size;
+            var imgBuffer: [*]align(8) u8 = contentBuffer + @sizeOf(SinglyLinkedList(DriverImageInfo));
+            if (root.read(&imgSize, imgBuffer) != uefi.Status.Success) {
+                @panic("Failed to read driver image !\n");
+            }
+
+            var node = @ptrCast(*SinglyLinkedList(DriverImageInfo).Node, contentBuffer);
+            node.* = SinglyLinkedList(DriverImageInfo).Node{ .data = DriverImageInfo { .len = info.file_size, .img = imgBuffer } };
+            list.prepend(node);
         }
     }
 }
 
-pub fn listFiles(bs: *uefi.tables.BootServices, fs: *uefi.protocols.SimpleFileSystemProtocol) void {
+pub fn loadDriverImages(bs: *uefi.tables.BootServices, fs: *uefi.protocols.SimpleFileSystemProtocol) SinglyLinkedList(DriverImageInfo) {
     var root: *uefi.protocols.FileProtocol = undefined;
 
     var status = fs.openVolume(&root);
@@ -109,5 +129,8 @@ pub fn listFiles(bs: *uefi.tables.BootServices, fs: *uefi.protocols.SimpleFileSy
         @panic("Failed to open the volume described by a filesystem protocol!");
     }
 
-    listFilesRec(bs, root);
+    var list: SinglyLinkedList(DriverImageInfo) = SinglyLinkedList(DriverImageInfo){};
+    listFilesRec(bs, root, &list);
+
+    return list;
 }

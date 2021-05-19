@@ -1,11 +1,13 @@
 const std = @import("std");
 const uefi = std.os.uefi;
+const SinglyLinkedList = @import("std").SinglyLinkedList;
 
 const uefiAllocator = @import("uefi/allocator.zig");
 const uefiMemory = @import("uefi/memory.zig");
 const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
 const uefiBootDisk = @import("uefi/boot_disk.zig");
+const DriverImageInfo = uefiBootDisk.DriverImageInfo;
 
 const Color = @import("lib").graphics.Color;
 const kernelGraphics = @import("uefi/graphics.zig");
@@ -142,7 +144,9 @@ pub fn main() void {
     };
 
     var simpleFileSystemProto = uefiBootDisk.enumerateAllFSProtocols(bootServices);
-    uefiBootDisk.listFiles(bootServices, simpleFileSystemProto);
+    var driverImages = uefiBootDisk.loadDriverImages(bootServices, simpleFileSystemProto);
+    // TODO : Handle the drivers from here
+    // Note : driveImages has type SinglyLinkedList(DriverImageInfo);
 
     var plt_pre_step = tty.step("Platform preinitialization", .{});
     platform.preinitialize();
