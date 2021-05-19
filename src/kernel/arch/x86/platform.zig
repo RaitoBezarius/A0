@@ -4,6 +4,7 @@ const idt = @import("idt.zig");
 const layout = @import("layout.zig");
 const pmem = @import("pmem.zig");
 const vmem = @import("vmem.zig");
+const syscalls = @import("syscall.zig");
 const pit = @import("pit.zig");
 const serial = @import("../../debug/serial.zig");
 const tty = @import("lib").graphics.Tty;
@@ -11,6 +12,7 @@ const kernelGraphics = @import("../../uefi/graphics.zig");
 const Task = @import("../../task.zig").Task;
 const Allocator = std.mem.Allocator;
 const KernelAllocator = @import("KernelAllocator.zig");
+pub const Syscall = @import("syscall.zig");
 
 pub extern fn getEflags() u32;
 pub extern fn getCS() u32;
@@ -44,8 +46,6 @@ pub fn preinitialize() void {
     cli(); // Disable all interrupts.
     gdt.initialize();
     idt.initialize();
-    // TODO: enable me when vmem setupPaging is ready, enableSystemCallExtensions();
-    // TODO: support for syscall require to load the kernel entrypoint in the LSTAR MSR.
 }
 
 // Returns the kernel allocator
@@ -58,7 +58,7 @@ pub fn initialize(freeSegAddr: u64, freeSegLen: u64) *Allocator {
     vmem.initialize();
     pit.initialize();
     sti();
-    enableSystemCallExtensions();
+    syscalls.initialize();
     // TODO: timer.initialize();
     // rtc.initialize();
     KernelAllocator.initialize(vmem.LinearAddress.four_level_addr(256, 0, 1, 0, 0));
@@ -220,16 +220,6 @@ pub fn isLongModeEnabled() bool {
 
     var eferMSR: u64 = readMSR(EFER_MSR);
     return (eferMSR & (1 << 10)) != 0 and (eferMSR & (1 << 8)) != 0; // EFER.LMA & EFER.LME.
-}
-
-pub const STAR_MSR = 0xC0000081;
-pub fn enableSystemCallExtensions() void {
-    var step = tty.step("Activating the system call extensions", .{});
-    defer step.ok();
-    var eferMSR = readMSR(EFER_MSR);
-    writeMSR(EFER_MSR, eferMSR & 0x1); // Enable SCE bit.
-    var starMSR = readMSR(STAR_MSR);
-    writeMSR(STAR_MSR, 0x00180008); // GDT segment.
 }
 
 pub fn rdtsc() u64 {

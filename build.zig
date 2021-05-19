@@ -10,6 +10,7 @@ fn buildKernel(b: *Builder) []const u8 {
     exe.addAssemblyFile("src/kernel/arch/x86/platform.s");
     exe.addAssemblyFile("src/kernel/arch/x86/gdt.s");
     exe.addAssemblyFile("src/kernel/arch/x86/isr.s");
+    exe.addAssemblyFile("src/kernel/arch/x86/entry_syscall.s");
 
     exe.setBuildMode(b.standardReleaseOptions());
     exe.setTarget(.{
@@ -52,9 +53,9 @@ fn buildKernel(b: *Builder) []const u8 {
 }
 
 fn buildServer(b: *Builder, comptime name: []const u8) []const u8 {
-    const server = b.addExecutable(name, "servers/" ++ name ++ "/main.zig");
-    server.addPackagePath("lib", "lib/index.zig");
-    server.setOutputPath("build/servers/" ++ name ++ "/" ++ name);
+    const server = b.addExecutable(name, "src/servers/" ++ name ++ "/main.zig");
+    server.addPackagePath("lib", "src/lib/index.zig");
+    server.setOutputDir("build/servers/" ++ name ++ "/");
 
     server.setBuildMode(b.standardReleaseOptions());
     server.setTarget(.{ .cpu_arch = .x86_64, .os_tag = .freestanding });
@@ -65,6 +66,7 @@ fn buildServer(b: *Builder, comptime name: []const u8) []const u8 {
 
 pub fn build(b: *Builder) !void {
     const kernel = buildKernel(b);
+    const keyboard = buildServer(b, "keyboard");
 
     const uefiStartupScript = b.addWriteFile("startup.nsh", "\\EFI\\BOOT\\BootX64.efi");
     const uefi_fw_path = std.os.getenv("OVMF_FW_CODE_PATH") orelse "ovmf_code_x64.bin";
