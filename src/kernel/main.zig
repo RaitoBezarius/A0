@@ -137,12 +137,12 @@ pub fn main() void {
     scheduler.initialize(@frameAddress(), @frameSize(main), uefiAllocator.systemAllocator) catch |err| {
         kernelGraphics.panic("Failed to initialize scheduler: {}", .{err});
     };
-    //bootscreen.bootVideo(uefiAllocator.systemAllocator) catch |err| {
-    //    tty.panic("Failed to initialize boot video: {}", .{err});
-    //};
+    bootscreen.bootVideo(uefiAllocator.systemAllocator) catch |err| {
+        kernelGraphics.panic("Failed to initialize boot video: {}", .{err});
+    };
 
     var simpleFileSystemProto = uefiBootDisk.enumerateAllFSProtocols(bootServices);
-    uefiBootDisk.listFiles(simpleFileSystemProto);
+    uefiBootDisk.listFiles(bootServices, simpleFileSystemProto);
 
     var plt_pre_step = tty.step("Platform preinitialization", .{});
     platform.preinitialize();

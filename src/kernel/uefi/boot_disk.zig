@@ -29,9 +29,9 @@ pub fn listFiles(bs: *uefi.tables.BootServices, fs: *uefi.protocols.SimpleFileSy
         @panic("Failed to open the volume described by a filesystem protocol!");
     }
 
-    var bufferSize: usize = @sizeOf(uefi.protocols.FileProtocol.FileInfo) + 260;
-    var buffer: [*]u8 = undefined;
-    if (bs.AllocateZeroPool(bufferSize, &buffer) != uefi.Status.Success) {
+    var bufferSize: usize = @sizeOf(uefi.protocols.FileInfo) + 260;
+    var buffer: [*]align(8) u8 = undefined;
+    if (bs.allocatePool(uefi.tables.MemoryType.LoaderData, bufferSize, &buffer) != uefi.Status.Success) {
         @panic("Failed to allocate a pool for directory information!\n");
     }
 
