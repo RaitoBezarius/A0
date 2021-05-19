@@ -5,6 +5,7 @@ const uefiAllocator = @import("uefi/allocator.zig");
 const uefiMemory = @import("uefi/memory.zig");
 const uefiConsole = @import("uefi/console.zig");
 const uefiSystemInfo = @import("uefi/systeminfo.zig");
+const uefiBootDisk = @import("uefi/boot_disk.zig");
 
 const Color = @import("lib").graphics.Color;
 const kernelGraphics = @import("uefi/graphics.zig");
@@ -139,6 +140,9 @@ pub fn main() void {
     //bootscreen.bootVideo(uefiAllocator.systemAllocator) catch |err| {
     //    tty.panic("Failed to initialize boot video: {}", .{err});
     //};
+
+    var simpleFileSystemProto = uefiBootDisk.enumerateAllFSProtocols(bootServices);
+    uefiBootDisk.listFiles(simpleFileSystemProto);
 
     var plt_pre_step = tty.step("Platform preinitialization", .{});
     platform.preinitialize();
